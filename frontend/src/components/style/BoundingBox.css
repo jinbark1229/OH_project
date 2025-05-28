@@ -1,0 +1,7 @@
+/* Bounding Box 스타일 */
+.bounding-box {
+  border: 2px solid red;
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none; /* Bounding Box 클릭 방지 */
+}

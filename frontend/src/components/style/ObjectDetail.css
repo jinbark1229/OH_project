@@ -1,0 +1,15 @@
+/* 객체 상세 정보 스타일 */
+.object-detail {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.object-detail h3 {
+  color: #007bff;
+  margin-bottom: 10px;
+}
+
+.object-detail p {
+  margin-bottom: 8px;
+}

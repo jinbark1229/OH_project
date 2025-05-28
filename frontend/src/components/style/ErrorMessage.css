@@ -1,0 +1,9 @@
+/* 에러 메시지 스타일 */
+.error-message {
+  color: #dc3545; /* 빨간색 */
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+}
