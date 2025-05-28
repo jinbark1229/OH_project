@@ -1,0 +1,27 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app  # 개발 시 코드 변경 사항을 즉시 반영하기 위해
+    environment:
+      DATABASE_URL: sqlite:///database.db
+      UPLOAD_FOLDER: uploads
+      YOLO_MODEL_PATH: yolov5s.pt  # YOLOv5 모델 경로 추가
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app  # 개발 시 코드 변경 사항을 즉시 반영하기 위해
+    environment:
+      REACT_APP_API_BASE_URL: http://backend:5000  # 백엔드 API 주소 (컨테이너 내부 통신)
+    depends_on:
+      - backend
