@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import './style/Page.css';
+import { useNavigate } from 'react-router-dom';
 import ImageUploader from '../components/ImageUploader';
 import ErrorMessage from '../components/ErrorMessage';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -7,6 +9,7 @@ function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const navigate = useNavigate();
 
   const handleImageUpload = async (imageFile) => {
     setLoading(true);
@@ -40,19 +43,23 @@ function AdminPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = '/admin/login';
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+
+    if (!token || !isAdmin) {
+      setError('관리자 권한이 필요합니다.');
+      navigate('/admin/login');
     }
-  }, []);
+  }, [navigate]);
 
   return (
-    <div>
-      <h1>Admin Page</h1>
-      <ImageUploader onImageUpload={handleImageUpload} />
-
-      {loading && <LoadingSpinner />}
+    <div className="page-container">
+      <h1 className="page-title">관리자 페이지</h1>
       {error && <ErrorMessage message={error} />}
-      {uploadSuccess && <p style={{ color: 'green' }}>이미지 업로드 성공!</p>}
+      <div className="page-content">
+        <ImageUploader onImageUpload={handleImageUpload} />
+        {loading && <LoadingSpinner />}
+        {uploadSuccess && <p className="success-message">이미지 업로드 성공!</p>}
+      </div>
     </div>
   );
 }

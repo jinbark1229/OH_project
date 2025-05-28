@@ -4,18 +4,24 @@ FROM python:3.9-slim-buster
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# 의존성 복사 및 설치
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# YOLOv5 저장소 복제 및 모델 다운로드
+RUN apt-get update && apt-get install -y git && \
+    git clone https://github.com/ultralytics/yolov5 && \
+    pip install --upgrade pip
 
-# 소스 코드 복사
-COPY backend .
+# requirements.txt 복사 및 설치 (YOLOv5 requirements 포함)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r yolov5/requirements.txt
 
-# 환경 변수 설정 (필요한 경우)
+# 소스 코드 복사 (my-utils.py 등 포함)
+COPY . .
+
+# 환경 변수 설정
 ENV DATABASE_URL=sqlite:///database.db
 ENV UPLOAD_FOLDER=uploads
-# YOLOv5 모델 경로 추가
-ENV YOLO_MODEL_PATH=yolov5s.pt
+ENV YOLO_MODEL_PATH=/app/yolov5s.pt
+ENV JWT_SECRET_KEY=your_jwt_secret_key
 
 # 포트 설정
 EXPOSE 5000
