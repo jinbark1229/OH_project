@@ -10,7 +10,6 @@ pandas
 pymysql
 python-dotenv
 utils
-utils.downloads
 requests
 Flask-SQLAlchemy
 PyJWT
