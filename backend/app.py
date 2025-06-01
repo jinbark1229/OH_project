@@ -1,3 +1,4 @@
+# app.py
 import os
 import logging
 import datetime
@@ -10,6 +11,7 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 import jwt
 import sys
+from my_models import db, User, LostItem  # SQLAlchemy 인스턴스 및 모델 임포트
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO,
@@ -17,7 +19,10 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/api/*": {"origins": "http://localhost:3000"},
+    r"/api/auth/*": {"origins": "http://localhost:3000"}
+})
 
 # 환경 변수 설정
 DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///database.db')
@@ -32,7 +37,8 @@ app.config['JWT_SECRET_KEY'] = JWT_SECRET_KEY
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-db = SQLAlchemy(app)
+#db = SQLAlchemy(app)  # 이 코드는 제거
+db.init_app(app)  # SQLAlchemy 인스턴스를 Flask 앱에 연결
 
 # JWT 설정
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)  # 토큰 유효 시간
@@ -49,7 +55,7 @@ except Exception as e:
     print(f"YOLOv5 모델 로드 실패: {e}")
     model = None
 
-from my_models import User, LostItem  # models.py에서 User와 LostItem 모델을 가져옵니다.
+#from my_models import User, LostItem  # 이 코드는 그대로 유지
 
 with app.app_context():
     db.create_all()
@@ -86,7 +92,7 @@ def user_detect_objects():
                 'confidence': confidence,
                 'bbox': [x1, y1, x2, y2]
             })
-        return jsonify(predictions), 200
+        return jsonify(predictions), 200  # <-- 들여쓰기 및 위치 수정
 
     except Exception as e:
         print(f"오브젝트 감지 중 오류 발생: {e}")

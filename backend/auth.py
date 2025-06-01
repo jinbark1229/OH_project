@@ -3,14 +3,11 @@ import os
 import datetime
 import jwt
 from functools import wraps
-from flask import Blueprint, request, jsonify
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Blueprint, request, jsonify, current_app
+from werkzeug.security import generate_password_hash, check_password_hash  # generate_password_hash 함수 임포트
 from my_models import db, User  # models.py 파일 임포트
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
-
-# 환경 변수 설정
-JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your_jwt_secret_key')
 
 # JWT 토큰 생성 함수
 def generate_token(user):
@@ -21,7 +18,7 @@ def generate_token(user):
         'is_admin': user.is_admin,
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     }
-    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm='HS256')
+    token = jwt.encode(payload, current_app.config['JWT_SECRET_KEY'], algorithm='HS256')
     return token
 
 # JWT 토큰 검증 데코레이터
@@ -34,7 +31,7 @@ def token_required(f):
 
         try:
             token = token.split(" ")[1]
-            data = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+            data = jwt.decode(token, current_app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
             current_user = User.query.filter_by(id=data['user_id']).first()
         except jwt.ExpiredSignatureError:
             return jsonify({'message': '토큰이 만료되었습니다.'}), 401
@@ -56,7 +53,7 @@ def admin_required(f):
         return f(current_user, *args, **kwargs)
     return decorated
 
-# 사용자 회원 가입 API
+# 회원가입 API
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -64,6 +61,7 @@ def register():
     password = data.get('password')
     email = data.get('email')
     admin_code = data.get('admin_code', None)
+    ADMIN_INVITE_CODE = os.environ.get('ADMIN_INVITE_CODE', 'your_admin_invite_code')
 
     if not username or not password or not email:
         return jsonify({'error': '아이디, 비밀번호, 이메일을 모두 입력해주세요.'}), 400
@@ -72,7 +70,6 @@ def register():
         return jsonify({'error': '이미 사용중인 아이디입니다.'}), 400
 
     is_admin = False
-    ADMIN_INVITE_CODE = os.environ.get('ADMIN_INVITE_CODE', 'your_admin_invite_code')  # auth_bp에서 환경 변수 다시 로드
     if admin_code == ADMIN_INVITE_CODE:
         is_admin = True
 
@@ -83,7 +80,7 @@ def register():
 
     return jsonify({'message': '회원 가입 성공'}), 201
 
-# 사용자 로그인 API
+# 로그인 API
 @auth_bp.route('/login', methods=['POST'])
 def user_login():
     data = request.get_json()
