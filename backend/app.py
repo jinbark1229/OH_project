@@ -1,4 +1,3 @@
-# app.py
 import os
 import logging
 import datetime
@@ -12,6 +11,8 @@ from werkzeug.utils import secure_filename
 import jwt
 import sys
 from my_models import db, User, LostItem  # SQLAlchemy 인스턴스 및 모델 임포트
+from auth import auth_bp
+from detect import detect_bp
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO,
@@ -19,19 +20,19 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, resources={
-    r"/api/*": {"origins": "http://localhost:3000"},
-    r"/api/auth/*": {"origins": "http://localhost:3000"}
-})
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+
+# .env 파일 로드
+load_dotenv()
 
 # 환경 변수 설정
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///database.db')
+DATABASE_URL = os.environ.get('DATABASE_URL')  # .env 파일에서 DATABASE_URL 읽기
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
 YOLO_MODEL_PATH = os.environ.get('YOLO_MODEL_PATH', 'yolov5')
 JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your_jwt_secret_key')
 
 # 데이터베이스 설정
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL  # .env에서 읽은 값 적용
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = JWT_SECRET_KEY
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -123,7 +124,14 @@ def admin_upload_image():
         logger.warning('관리자 이미지 업로드 실패: 잘못된 파일 형식')
         return jsonify({'error': 'Invalid file type'}), 400
 
+# 헬스 체크 엔드포인트 (가장 먼저 정의)
+@app.route('/')
+def health_check():
+    return 'Flask 서버가 정상적으로 동작 중입니다.', 200
+
 # 프론트엔드 빌드 파일 제공 (SPA 라우팅 지원)
+app.static_folder = 'build' # React 빌드 파일 위치 설정
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react(path):
@@ -132,13 +140,10 @@ def serve_react(path):
     else:
         return send_from_directory(app.static_folder, 'index.html')
 
-@app.route('/')
-def health_check():
-    return 'Flask 서버가 정상적으로 동작 중입니다.', 200
-
-from auth import auth_bp
+# 블루프린트 등록
 app.register_blueprint(auth_bp)
+app.register_blueprint(detect_bp)
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    # 포트를 5000번으로 명시적으로 지정
+    app.run(debug=True, host='0.0.0.0', port=5000)

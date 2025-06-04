@@ -1,20 +1,21 @@
+// src/components/ObjectList.js
 import React from 'react';
 import './style/ObjectList.css';
 
-function ObjectList({ detections, selectedObjectId, onSelectObject }) {
+const ObjectList = ({ objects, onSelect }) => {
   return (
-    <ul>
-      {detections.map((obj) => (
+    <ul className="object-list-ul">
+      {objects.map((object) => (
         <li
-          key={obj.id}
-          className={selectedObjectId === obj.id ? 'selected' : ''}
-          onClick={() => onSelectObject(obj.id)}
+          className="object-list-li"
+          key={object.id}
+          onClick={() => onSelect(object)}
         >
-          {obj.label} (Confidence: {obj.confidence.toFixed(2)})
+          {object.className} ({object.confidence.toFixed(2)})
         </li>
       ))}
     </ul>
   );
-}
+};
 
 export default ObjectList;

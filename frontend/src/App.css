@@ -1,68 +1,157 @@
-/* 전체적인 스타일 */
+/* 사용자/관리자 로그인 구분이 잘 보이는 심플&모던 스타일 */
+
 body {
-  font-family: 'Noto Sans KR', sans-serif; /* 한국어 폰트 추가 */
   margin: 0;
   padding: 0;
-  background-color: #f8f9fa; /* 밝은 회색 배경 */
-  color: #343a40; /* 기본 글자색 */
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(120deg, #f0f4f9 0%, #d9e7fa 100%);
+  color: #232946;
+  min-height: 100vh;
 }
 
 .App {
-  max-width: 800px;
-  margin: 20px auto;
-  padding: 30px;
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* 그림자 효과 */
+  max-width: 480px;
+  margin: 48px auto;
+  padding: 32px 24px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(60, 60, 120, 0.13);
 }
 
 h1 {
-  color: #007bff; /* 주요 색상 */
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 32px;
+  color: #2a3a5a;
+  font-size: 2.2em;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 nav ul {
-  list-style: none;
-  padding: 0;
   display: flex;
   justify-content: center;
-  margin-bottom: 30px;
-}
-
-nav li {
-  margin: 0 15px;
+  align-items: center;
+  list-style: none;
+  padding: 0;
+  margin-bottom: 32px;
+  gap: 20px;
 }
 
 nav a {
+  color: #2a3a5a;
   text-decoration: none;
-  color: #6c757d; /* 보조 색상 */
+  padding: 8px 20px;
+  border-radius: 8px;
   font-weight: 500;
-  transition: color 0.3s ease; /* 호버 효과 */
+  font-size: 1.05em;
+  transition: background 0.2s, color 0.2s;
+  border: 1.5px solid transparent;
 }
 
-nav a:hover {
-  color: #007bff; /* 주요 색상으로 변경 */
+nav a:hover, nav a.active {
+  background: #e0e7ff;
+  color: #232946;
+  border: 1.5px solid #bfc9d9;
 }
 
-/* 페이지 컨테이너 */
-.page-container {
-  padding: 20px;
+.error-message {
+  color: #c00;
+  background: #fee;
+  border: 1px solid #c00;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-top: 10px;
+  font-size: 1em;
 }
 
-/* 반응형 디자인 */
-@media (max-width: 600px) {
-  .App {
-    margin: 10px auto;
-    padding: 20px;
-  }
+/* 로그인 타입 구분 탭 */
+.login-type-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
 
-  nav ul {
-    flex-direction: column;
-    align-items: center;
-  }
+.login-type-tab {
+  padding: 10px 28px;
+  border-radius: 20px;
+  border: 2px solid #bfc9d9;
+  background: #f4f7fb;
+  color: #2a3a5a;
+  font-weight: 600;
+  font-size: 1.05em;
+  cursor: pointer;
+  transition: background 0.2s, border 0.2s, color 0.2s;
+}
 
-  nav li {
-    margin: 10px 0;
-  }
+.login-type-tab.active,
+.login-type-tab.selected {
+  background: #3b4cca;
+  color: #fff;
+  border: 2px solid #3b4cca;
+}
+
+.login-type-tab.admin {
+  background: #fff7e6;
+  color: #b26a00;
+  border: 2px solid #ffe0a3;
+}
+
+.login-type-tab.admin.active,
+.login-type-tab.admin.selected {
+  background: #ffb300;
+  color: #fff;
+  border: 2px solid #ffb300;
+}
+
+/* 입력 요소 */
+input, select {
+  padding: 10px;
+  border: 1.5px solid #bfc9d9;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 1em;
+  background: #f4f7fb;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border 0.2s;
+}
+
+input:focus, select:focus {
+  border: 1.5px solid #3b4cca;
+  outline: none;
+  background: #fff;
+}
+
+label {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #3b4cca;
+  display: block;
+}
+
+button {
+  padding: 12px 0;
+  background: linear-gradient(90deg, #3b4cca 0%, #5f6ee6 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  margin-top: 8px;
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(60, 60, 120, 0.08);
+}
+
+button:hover {
+  background: linear-gradient(90deg, #232946 0%, #3b4cca 100%);
+}
+
+@media (max-width: 650px) {
+  .App { margin: 8px auto; padding: 10px; }
+  nav ul { flex-direction: column; gap: 10px; }
+  h1 { font-size: 1.5em; }
+  .login-type-tabs { flex-direction: column; gap: 8px; }
 }

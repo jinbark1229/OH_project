@@ -1,15 +1,19 @@
-/* 객체 상세 정보 스타일 */
-.object-detail {
+/* src/components/ObjectDetail.css */
+.object-detail-container {
   padding: 20px;
   border: 1px solid #ddd;
-  border-radius: 8px;
+  border-radius: 6px;
+  background: #fafafa;
+  margin-bottom: 16px;
 }
 
-.object-detail h3 {
-  color: #007bff;
-  margin-bottom: 10px;
+.object-detail-title {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 12px;
 }
 
-.object-detail p {
+.object-detail-item {
   margin-bottom: 8px;
+  font-size: 1em;
 }

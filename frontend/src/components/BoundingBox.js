@@ -1,15 +1,24 @@
+// src/components/BoundingBox.js
 import React from 'react';
 import './style/BoundingBox.css';
 
-function BoundingBox({ box, imageWidth, imageHeight }) {
+const BoundingBox = ({ box }) => {
+  const { x1, y1, x2, y2, className, confidence } = box;
+
   const style = {
-    left: `${(box.x / imageWidth) * 100}%`,
-    top: `${(box.y / imageHeight) * 100}%`,
-    width: `${(box.width / imageWidth) * 100}%`,
-    height: `${(box.height / imageHeight) * 100}%`,
+    left: `${x1}px`,
+    top: `${y1}px`,
+    width: `${x2 - x1}px`,
+    height: `${y2 - y1}px`,
   };
 
-  return <div className="bounding-box" style={style}></div>;
-}
+  return (
+    <div className="bounding-box" style={style}>
+      <span className="bounding-box-label">
+        {className} ({confidence.toFixed(2)})
+      </span>
+    </div>
+  );
+};
 
 export default BoundingBox;

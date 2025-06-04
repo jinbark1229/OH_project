@@ -1,9 +1,10 @@
-/* 에러 메시지 스타일 */
+/* src/components/ErrorMessage.css */
 .error-message {
-  color: #dc3545; /* 빨간색 */
-  margin-top: 10px;
-  padding: 10px;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
+  color: #d32f2f;
+  background: #ffeaea;
+  border: 1px solid #ffbdbd;
+  padding: 10px 16px;
+  margin: 12px 0;
   border-radius: 4px;
+  font-size: 1em;
 }

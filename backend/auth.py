@@ -4,8 +4,8 @@ import datetime
 import jwt
 from functools import wraps
 from flask import Blueprint, request, jsonify, current_app
-from werkzeug.security import generate_password_hash, check_password_hash  # generate_password_hash 함수 임포트
-from my_models import db, User  # models.py 파일 임포트
+from werkzeug.security import generate_password_hash, check_password_hash
+from my_models import db, User
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
@@ -56,40 +56,64 @@ def admin_required(f):
 # 회원가입 API
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    email = data.get('email')
-    admin_code = data.get('admin_code', None)
-    ADMIN_INVITE_CODE = os.environ.get('ADMIN_INVITE_CODE', 'your_admin_invite_code')
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        email = data.get('email')
+        admin_code = data.get('admin_code', None)  # 입력 안 하면 None
 
-    if not username or not password or not email:
-        return jsonify({'error': '아이디, 비밀번호, 이메일을 모두 입력해주세요.'}), 400
+        if not username or not password or not email:
+            return jsonify({'error': '필수 항목이 누락되었습니다.'}), 400
 
-    if User.query.filter_by(username=username).first():
-        return jsonify({'error': '이미 사용중인 아이디입니다.'}), 400
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': '이미 존재하는 아이디입니다.'}), 409
 
-    is_admin = False
-    if admin_code == ADMIN_INVITE_CODE:
-        is_admin = True
+        # 관리자 코드가 정확히 '555777'일 때만 관리자, 아니면 일반 사용자
+        is_admin = (admin_code == '555777')
 
-    new_user = User(username=username, email=email, is_admin=is_admin)
-    new_user.set_password(password)
-    db.session.add(new_user)
-    db.session.commit()
+        user = User(
+            username=username,
+            password=generate_password_hash(password),
+            email=email,
+            is_admin=is_admin
+        )
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({'message': '회원가입 성공'}), 201
 
-    return jsonify({'message': '회원 가입 성공'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # 로그인 API
 @auth_bp.route('/login', methods=['POST'])
-def user_login():
+def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
 
     user = User.query.filter_by(username=username).first()
-    if user and user.check_password(password):
-        token = generate_token(user)
-        return jsonify({'token': token}), 200
-    else:
-        return jsonify({'error': '아이디 또는 비밀번호가 일치하지 않습니다.'}), 401
+    if not user or not check_password_hash(user.password, password):
+        return jsonify({'error': '아이디 또는 비밀번호가 올바르지 않습니다.'}), 401
+
+    payload = {
+        'user_id': user.id,
+        'username': user.username,
+        'is_admin': user.is_admin,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    }
+    token = jwt.encode(payload, current_app.config['JWT_SECRET_KEY'], algorithm='HS256')
+
+    return jsonify({
+        'token': token,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'is_admin': user.is_admin
+        }
+    }), 200
+
+@auth_bp.route('/logout', methods=['POST'])
+def logout():
+    # JWT는 서버에서 세션을 관리하지 않으므로, 프론트엔드에서 토큰 삭제로 처리
+    return jsonify({'message': '로그아웃 성공'}), 200

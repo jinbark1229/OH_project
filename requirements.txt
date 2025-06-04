@@ -14,3 +14,4 @@ requests
 Flask-SQLAlchemy
 PyJWT
 Werkzeug
+gunicorn

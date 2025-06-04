@@ -5,15 +5,11 @@ FROM node:16-alpine
 WORKDIR /app
 
 # 의존성 복사 및 설치
-COPY frontend/package*.json ./
+COPY package*.json ./
 RUN npm install
 
 # 소스 코드 복사
-COPY frontend .
-
-# 환경 변수 설정 (필요한 경우)
-ENV REACT_APP_API_BASE_URL=http://localhost:5000
-# 백엔드 API 주소
+COPY . .
 
 # 포트 설정
 EXPOSE 3000

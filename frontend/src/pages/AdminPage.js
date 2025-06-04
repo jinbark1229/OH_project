@@ -1,65 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import './style/Page.css';
-import { useNavigate } from 'react-router-dom';
-import ImageUploader from '../components/ImageUploader';
-import ErrorMessage from '../components/ErrorMessage';
-import LoadingSpinner from '../components/LoadingSpinner';
+import React, { useState } from "react";
+import ImageUploader from "../components/ImageUploader";
+import ResultDisplay from "../components/ResultDisplay";
 
 function AdminPage() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-  const navigate = useNavigate();
+  const [result, setResult] = useState(null);
 
   const handleImageUpload = async (imageFile) => {
-    setLoading(true);
-    setError(null);
-    setUploadSuccess(false);
-
+    // YOLO 백엔드로 이미지 전송 (관리자용)
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      setUploadSuccess(true);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+    const response = await fetch('http://localhost:5000/api/yolo', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    setResult(data);
   };
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const isAdmin = localStorage.getItem('isAdmin') === 'true';
-
-    if (!token || !isAdmin) {
-      setError('관리자 권한이 필요합니다.');
-      navigate('/admin/login');
-    }
-  }, [navigate]);
-
   return (
-    <div className="page-container">
-      <h1 className="page-title">관리자 페이지</h1>
-      {error && <ErrorMessage message={error} />}
-      <div className="page-content">
-        <ImageUploader onImageUpload={handleImageUpload} />
-        {loading && <LoadingSpinner />}
-        {uploadSuccess && <p className="success-message">이미지 업로드 성공!</p>}
-      </div>
+    <div className="admin-page-container">
+      <h1>관리자 페이지</h1>
+      <ImageUploader onImageUpload={handleImageUpload} />
+      {result && <ResultDisplay imageUrl={result.imageUrl}>{/* 결과 표시 */}</ResultDisplay>}
     </div>
   );
 }

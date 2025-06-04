@@ -1,7 +1,22 @@
-/* Bounding Box 스타일 */
+/* src/components/BoundingBox.css */
 .bounding-box {
-  border: 2px solid red;
   position: absolute;
+  border: 2px solid #ff3333;
+  pointer-events: none;
   box-sizing: border-box;
-  pointer-events: none; /* Bounding Box 클릭 방지 */
+  z-index: 10;
+}
+
+.bounding-box-label {
+  position: absolute;
+  top: -1.5em;
+  left: 0;
+  background: #ff3333;
+  color: #fff;
+  font-size: 0.85em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  font-weight: bold;
+  z-index: 11;
 }

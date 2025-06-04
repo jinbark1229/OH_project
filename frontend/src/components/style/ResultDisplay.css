@@ -1,36 +1,13 @@
-/* 결과 표시 컨테이너 */
+/* src/components/ResultDisplay.css */
 .result-display-container {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  margin-top: 20px;
-  border: 1px solid #ddd; /* 구분선 추가 */
-  padding: 20px;            /* 안쪽 여백 추가 */
-  border-radius: 8px;       /* 모서리 둥글게 */
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  text-align: center;
 }
 
-/* 객체 목록 스타일 */
-.object-list {
-  width: 40%;
-}
-
-/* 객체 상세 정보 스타일 */
-.object-detail {
-  width: 55%;
-}
-
-/* 반응형 디자인 */
-@media (max-width: 768px) {
-    .result-display-container {
-        flex-direction: column;       /* 세로로 배치 */
-    }
-
-    .object-list {
-        width: 100%;              /* 전체 너비 사용 */
-        margin-bottom: 20px;      /* 간격 추가 */
-    }
-
-    .object-detail {
-        width: 100%;              /* 전체 너비 사용 */
-    }
+.result-display-image {
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }

@@ -1,34 +1,54 @@
+// src/components/ImageUploader.js
 import React, { useState } from 'react';
 import './style/ImageUploader.css';
+import LoadingSpinner from './LoadingSpinner';
+import ErrorMessage from './ErrorMessage';
 
-function ImageUploader({ onImageUpload }) {
+const ImageUploader = ({ onImageUpload }) => {
   const [selectedImage, setSelectedImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleImageChange = (event) => {
-    if (event.target.files && event.target.files[0]) {
-      const image = event.target.files[0];
-      setSelectedImage(URL.createObjectURL(image));
-      onImageUpload(image);
+    setSelectedImage(event.target.files[0]);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedImage) {
+      setError('이미지를 선택해주세요.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await onImageUpload(selectedImage);
+      setSelectedImage(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="image-uploader-container">
       <input
-        className="image-input"
+        className="image-uploader-input"
         type="file"
         accept="image/*"
         onChange={handleImageChange}
+        disabled={loading}
       />
-      {selectedImage && (
-        <img
-          className="uploaded-image"
-          src={selectedImage}
-          alt="Uploaded"
-        />
-      )}
+      <button
+        className="image-uploader-button"
+        onClick={handleUpload}
+        disabled={loading}
+      >
+        {loading ? <LoadingSpinner /> : '이미지 업로드'}
+      </button>
+      {error && <ErrorMessage message={error} />}
     </div>
   );
-}
+};
 
 export default ImageUploader;

@@ -1,34 +1,15 @@
-/* 로딩 스피너 스타일 */
-.spinner {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 30px;
-}
-
-.bounce1,
-.bounce2,
-.bounce3 {
-  width: 16px;
-  height: 16px;
-  background-color: #007bff;
-  border-radius: 50%;
+/* src/components/LoadingSpinner.css */
+.loading-spinner {
   display: inline-block;
-  animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+  width: 22px;
+  height: 22px;
+  border: 3px solid #bbb;
+  border-top: 3px solid #ff3333;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  vertical-align: middle;
 }
 
-.bounce1 {
-  animation-delay: -0.32s;
-}
-
-.bounce2 {
-  animation-delay: -0.16s;
-}
-
-@keyframes sk-bouncedelay {
-  0%, 80%, 100% {
-    transform: scale(0);
-  } 40% {
-    transform: scale(1.0);
-  }
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

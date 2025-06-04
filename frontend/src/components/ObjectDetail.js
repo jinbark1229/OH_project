@@ -1,18 +1,20 @@
+// src/components/ObjectDetail.js
 import React from 'react';
 import './style/ObjectDetail.css';
 
-function ObjectDetail({ object }) {
+const ObjectDetail = ({ object }) => {
   if (!object) {
-    return <p>객체를 선택하세요.</p>;
+    return <div className="object-detail-container">객체 정보를 불러오는 중...</div>;
   }
 
   return (
-    <div className="object-detail">
-      <h3>{object.label} 상세 정보</h3>
-      <p>Confidence: {object.confidence.toFixed(2)}</p>
-      <p>Bounding Box: x={object.box.x}, y={object.box.y}, width={object.box.width}, height={object.box.height}</p>
+    <div className="object-detail-container">
+      <h2 className="object-detail-title">객체 상세 정보</h2>
+      <div className="object-detail-item">클래스: {object.className}</div>
+      <div className="object-detail-item">확률: {object.confidence}</div>
+      {/* 다른 정보 표시 */}
     </div>
   );
-}
+};
 
 export default ObjectDetail;
