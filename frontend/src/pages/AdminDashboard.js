@@ -1,4 +1,4 @@
-// src/pages/UserPage.js
+// src/pages/AdminDashboard.js
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../App';
@@ -9,25 +9,25 @@ import './style/Page.css'; // 경로 수정
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
-const UserPage = () => {
+const AdminDashboard = () => {
   const { userInfo, userToken, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard' 또는 'my_uploads'
-  const [lostItems, setLostItems] = useState([]); // 내 등록 물건 목록
+  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard' 또는 'all_items'
+  const [allItems, setAllItems] = useState([]); // 모든 물건 목록
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (activeView === 'my_uploads' && userToken) {
-      fetchMyLostItems();
+    if (activeView === 'all_items' && userToken) {
+      fetchAllLostItems();
     }
   }, [activeView, userToken]);
 
-  const fetchMyLostItems = async () => {
+  const fetchAllLostItems = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/my_lost_items`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/all_lost_items`, { // 모든 물건 가져오는 새 엔드포인트 가정
         headers: {
           'Authorization': `Bearer ${userToken.token}`,
         },
@@ -35,14 +35,14 @@ const UserPage = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || '내 물건 정보를 가져오는데 실패했습니다.');
+        throw new Error(errorData.message || '모든 물건 정보를 가져오는데 실패했습니다.');
       }
 
       const data = await response.json();
-      setLostItems(data.lost_items);
+      setAllItems(data.lost_items);
     } catch (e) {
-      console.error('내 물건 정보 불러오기 오류:', e);
-      setError(e.message || '물건 정보를 불러오는 중 오류가 발생했습니다.');
+      console.error('모든 물건 정보 불러오기 오류:', e);
+      setError(e.message || '모든 물건 정보를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ const UserPage = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost_items/${itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/lost_items/${itemId}`, { // 사용자 API 재사용
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${userToken.token}`,
@@ -70,7 +70,7 @@ const UserPage = () => {
       }
 
       alert('물건 정보가 성공적으로 삭제되었습니다.');
-      setLostItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      setAllItems(prevItems => prevItems.filter(item => item.id !== itemId));
 
     } catch (e) {
       console.error('물건 삭제 오류:', e);
@@ -80,20 +80,20 @@ const UserPage = () => {
     }
   };
 
-  if (!userInfo) {
+  if (!userInfo || !userInfo.is_admin) {
     return (
         <div className="page-container">
-            <h1>로그인 필요</h1>
-            <p>이 페이지에 접근하려면 로그인해야 합니다.</p>
-            <button onClick={() => navigate('/login')}>로그인</button>
+            <h1>접근 권한 없음</h1>
+            <p>관리자만 접근할 수 있는 페이지입니다.</p>
+            <button onClick={() => navigate('/admin')}>관리자 로그인</button>
         </div>
     );
   }
 
   return (
     <div className="page-container">
-      <h1>사용자 대시보드</h1>
-      <p>환영합니다, {userInfo.username}님!</p>
+      <h1>관리자 대시보드</h1>
+      <p>환영합니다, {userInfo.username} 관리자님!</p>
 
       {/* 뷰 전환 버튼 */}
       <div className="view-switcher">
@@ -104,46 +104,46 @@ const UserPage = () => {
           기본 대시보드
         </button>
         <button 
-          className={`switcher-button ${activeView === 'my_uploads' ? 'active' : ''}`}
-          onClick={() => setActiveView('my_uploads')}
+          className={`switcher-button ${activeView === 'all_items' ? 'active' : ''}`}
+          onClick={() => setActiveView('all_items')}
         >
-          내 등록 물건
+          모든 물건 조회
         </button>
       </div>
 
       {/* 뷰 컨텐츠 */}
       {activeView === 'dashboard' && (
-        <div className="dashboard-view user-main-view">
-          <h2>기본 대시보드</h2>
-          <p>여기에 사용자에게 필요한 추가적인 정보를 배치할 수 있습니다.</p>
+        <div className="dashboard-view">
+          <h2>기본 관리 대시보드</h2>
+          <p>여기에 관리자에게 필요한 핵심 기능을 배치할 수 있습니다.</p>
           <div className="dashboard-sections">
-            <button className="dashboard-button" onClick={() => navigate('/user/upload')}>
-              잃어버린 물건 정보 등록하기
+            <button className="dashboard-button" onClick={() => navigate('/admin/upload-image')}>
+              잃어버린 물건 이미지 등록
             </button>
-            <button className="dashboard-button" onClick={() => navigate('/user/profile')}>
-              내 프로필 정보 확인
-            </button>
+            {/* 다른 관리 기능 버튼 */}
+            {/* <button className="dashboard-button">사용자 관리</button> */}
           </div>
         </div>
       )}
 
-      {activeView === 'my_uploads' && (
-        <div className="dashboard-view user-main-view">
-          <h2>내가 등록한 물건 목록</h2>
+      {activeView === 'all_items' && (
+        <div className="dashboard-view">
+          <h2>시스템에 등록된 모든 물건 목록</h2>
           {loading && <LoadingSpinner />}
           {error && <ErrorMessage message={error} />}
 
-          {!loading && !error && lostItems.length === 0 && (
-            <p>등록한 물건이 없습니다.</p>
+          {!loading && !error && allItems.length === 0 && (
+            <p>등록된 물건이 없습니다.</p>
           )}
 
           <div className="uploaded-items-grid">
-            {lostItems.map(item => (
+            {allItems.map(item => (
               <div key={item.id} className="item-card">
                 <img src={`${API_BASE_URL}${item.image_url}`} alt={item.description} className="item-thumbnail" />
                 <div className="item-details">
                   <p className="item-description">{item.description}</p>
                   <p className="item-location">발견 장소: {item.location}</p>
+                  <p>등록자 ID: {item.user_id}</p> {/* 관리자는 누가 등록했는지 확인 */}
                   <p>등록일: {new Date(item.created_at).toLocaleDateString()}</p>
                   <p>감지 결과: {item.detection_results || '없음'}</p>
                   <button className="delete-button" onClick={() => handleDeleteItem(item.id)} disabled={loading}>
@@ -164,4 +164,4 @@ const UserPage = () => {
   );
 };
 
-export default UserPage;
+export default AdminDashboard;

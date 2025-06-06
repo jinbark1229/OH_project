@@ -5,55 +5,54 @@ import jwt
 from functools import wraps
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
-from my_models import db, User
+from .my_models import db, User
+import re
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
-# JWT 토큰 생성 함수
+ADMIN_SECRET_CODE = os.environ.get('ADMIN_CODE', 'B2Z8$KD56%TY89&')
+
 def generate_token(user):
     payload = {
         'user_id': user.id,
         'username': user.username,
-        'role': user.role,
         'is_admin': user.is_admin,
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     }
     token = jwt.encode(payload, current_app.config['JWT_SECRET_KEY'], algorithm='HS256')
     return token
 
-# JWT 토큰 검증 데코레이터
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get('Authorization')
         if not token:
             return jsonify({'message': '토큰이 없습니다.'}), 401
-
         try:
             token = token.split(" ")[1]
             data = jwt.decode(token, current_app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
             current_user = User.query.filter_by(id=data['user_id']).first()
+            if not current_user:
+                return jsonify({'message': '사용자를 찾을 수 없습니다.'}), 404
         except jwt.ExpiredSignatureError:
             return jsonify({'message': '토큰이 만료되었습니다.'}), 401
         except jwt.InvalidTokenError:
             return jsonify({'message': '유효하지 않은 토큰입니다.'}), 401
         except Exception as e:
-            return jsonify({'message': str(e)}), 500
-
+            current_app.logger.error(f"토큰 검증 오류: {str(e)}")
+            return jsonify({'message': f'토큰 검증 오류: {str(e)}'}), 500
         return f(current_user, *args, **kwargs)
-
     return decorated
 
-# 관리자 권한 확인 데코레이터
 def admin_required(f):
     @wraps(f)
+    @token_required
     def decorated(current_user, *args, **kwargs):
         if not current_user.is_admin:
             return jsonify({'message': '관리자 권한이 필요합니다.'}), 403
         return f(current_user, *args, **kwargs)
     return decorated
 
-# 회원가입 API
 @auth_bp.route('/register', methods=['POST'])
 def register():
     try:
@@ -61,31 +60,69 @@ def register():
         username = data.get('username')
         password = data.get('password')
         email = data.get('email')
-        admin_code = data.get('admin_code', None)  # 입력 안 하면 None
+        admin_code = data.get('admin_code', None)
 
         if not username or not password or not email:
             return jsonify({'error': '필수 항목이 누락되었습니다.'}), 400
 
+        # 이메일 형식 검사
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            current_app.logger.warning(f"Invalid email format during registration: {email}")
+            return jsonify({'error': '유효한 이메일 주소를 입력해주세요.'}), 400
+
         if User.query.filter_by(username=username).first():
             return jsonify({'error': '이미 존재하는 아이디입니다.'}), 409
+        if User.query.filter_by(email=email).first():
+            return jsonify({'error': '이미 등록된 이메일입니다.'}), 409
 
-        # 관리자 코드가 정확히 '555777'일 때만 관리자, 아니면 일반 사용자
-        is_admin = (admin_code == '555777')
+        # --- 비밀번호 유효성 검사 시작 ---
+        # 1. 비밀번호 길이 검사 (최소 8자)
+        if len(password) < 8:
+            current_app.logger.warning(f"Registration password too short for {username}")
+            return jsonify({'error': '비밀번호는 최소 8자 이상이어야 합니다.'}), 400
+        # 2. 영어 대문자 1개 이상 포함
+        if not re.search(r'[A-Z]', password):
+            current_app.logger.warning(f"Registration password missing uppercase for {username}")
+            return jsonify({'error': '비밀번호는 하나 이상의 영어 대문자를 포함해야 합니다.'}), 400
+        # 3. 특수문자 1개 이상 포함 (일반적인 특수문자들)
+        if not re.search(r'[!@#$%^&*()_+\-=[\]{};\':"\\|,.<>/?`~]', password):
+            current_app.logger.warning(f"Registration password missing special character for {username}")
+            return jsonify({'error': '비밀번호는 하나 이상의 특수문자(!@#$%^&* 등)를 포함해야 합니다.'}), 400
+        # 4. 숫자 1개 이상 포함 <--- 새로 추가
+        if not re.search(r'[0-9]', password):
+            current_app.logger.warning(f"Registration password missing digit for {username}")
+            return jsonify({'error': '비밀번호는 하나 이상의 숫자를 포함해야 합니다.'}), 400
+        # 5. 영어 소문자 1개 이상 포함 <--- 새로 추가
+        if not re.search(r'[a-z]', password):
+            current_app.logger.warning(f"Registration password missing lowercase for {username}")
+            return jsonify({'error': '비밀번호는 하나 이상의 영어 소문자를 포함해야 합니다.'}), 400
+        # --- 비밀번호 유효성 검사 끝 ---
 
-        user = User(
-            username=username,
-            password=generate_password_hash(password),
-            email=email,
-            is_admin=is_admin
-        )
+        is_admin = False
+        if admin_code:
+            if admin_code == ADMIN_SECRET_CODE:
+                is_admin = True
+            else:
+                return jsonify({'error': '유효하지 않은 관리자 코드입니다.'}), 403
+
+        user = User(username=username, password=password, email=email, is_admin=is_admin)
         db.session.add(user)
         db.session.commit()
-        return jsonify({'message': '회원가입 성공'}), 201
+
+        return jsonify({
+            'message': '회원가입 성공',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'is_admin': user.is_admin
+            }
+        }), 201
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        db.session.rollback()
+        current_app.logger.error(f"회원가입 오류: {str(e)}")
+        return jsonify({'error': f'회원가입 중 오류가 발생했습니다: {str(e)}'}), 500
 
-# 로그인 API
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -93,16 +130,43 @@ def login():
     password = data.get('password')
 
     user = User.query.filter_by(username=username).first()
-    if not user or not check_password_hash(user.password, password):
+
+    if not user or not user.check_password(password):
         return jsonify({'error': '아이디 또는 비밀번호가 올바르지 않습니다.'}), 401
 
-    payload = {
-        'user_id': user.id,
-        'username': user.username,
-        'is_admin': user.is_admin,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    }
-    token = jwt.encode(payload, current_app.config['JWT_SECRET_KEY'], algorithm='HS256')
+    if user.is_admin:
+        return jsonify({'error': '관리자 계정은 관리자 로그인 페이지를 이용해주세요.'}), 403
+
+    token = generate_token(user)
+
+    return jsonify({
+        'token': token,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'is_admin': user.is_admin
+        }
+    }), 200
+
+@auth_bp.route('/admin-login', methods=['POST'])
+def admin_login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    admin_code = data.get('admin_code')
+
+    user = User.query.filter_by(username=username).first()
+
+    if not user or not user.check_password(password):
+        return jsonify({'error': '아이디 또는 비밀번호가 올바르지 않습니다.'}), 401
+
+    if not user.is_admin:
+        return jsonify({'error': '해당 계정은 관리자 계정이 아닙니다.'}), 403
+
+    if admin_code != ADMIN_SECRET_CODE:
+        return jsonify({'error': '입력된 관리자 코드가 올바르지 않습니다.'}), 403
+
+    token = generate_token(user)
 
     return jsonify({
         'token': token,
@@ -115,5 +179,4 @@ def login():
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
-    # JWT는 서버에서 세션을 관리하지 않으므로, 프론트엔드에서 토큰 삭제로 처리
     return jsonify({'message': '로그아웃 성공'}), 200

@@ -1,19 +1,22 @@
 /* src/components/ObjectDetail.css */
 .object-detail-container {
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fafafa;
-  margin-bottom: 16px;
+  padding: 22px 18px;
+  border: 1.5px solid #e3e8f7;
+  border-radius: 14px;
+  background: #f9fafc;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 8px rgba(120, 160, 255, 0.08);
 }
 
 .object-detail-title {
-  font-size: 1.2em;
+  font-size: 1.18em;
   font-weight: bold;
-  margin-bottom: 12px;
+  color: #3b4cca;
+  margin-bottom: 14px;
 }
 
 .object-detail-item {
   margin-bottom: 8px;
-  font-size: 1em;
+  font-size: 1.05em;
+  color: #495057;
 }

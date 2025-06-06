@@ -1,13 +1,56 @@
-/* src/components/ResultDisplay.css */
+/* src/components/style/ResultDisplay.css */
+
 .result-display-container {
-  position: relative;
-  width: 100%;
-  margin: 0 auto;
-  text-align: center;
+  display: flex; /* 가로로 이미지와 정보 패널 배치 */
+  gap: 20px; /* 요소들 간 간격 */
+  margin-top: 30px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #fcfcfc;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  flex-wrap: wrap; /* 작은 화면에서 요소들이 줄바꿈되도록 */
+  justify-content: center; /* 가운데 정렬 */
+}
+
+.image-and-boxes {
+  position: relative; /* 바운딩 박스 오버레이를 위해 relative 설정 */
+  max-width: 600px; /* 이미지 최대 너비 */
+  height: auto;
+  flex: 1; /* flex item으로 공간 분배 */
+  min-width: 300px; /* 최소 너비 설정 */
 }
 
 .result-display-image {
   max-width: 100%;
+  height: auto;
+  display: block; /* 이미지 하단 여백 제거 */
+  border-radius: 5px;
+}
+
+/* BoundingBox.css에 정의된 .bounding-box 스타일이 position: absolute; 여야 합니다. */
+/* 이는 BoundingBox.js와 BoundingBox.css가 잘 연결되어 있다면 문제 없습니다. */
+
+.object-info-panel {
+  flex: 0.5; /* 이미지 영역보다 작은 공간 차지 */
+  min-width: 280px; /* 최소 너비 설정 */
+  display: flex;
+  flex-direction: column;
+  gap: 15px; /* 목록과 상세 정보 간 간격 */
+  padding: 15px;
+  border: 1px solid #e9e9e9;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+@media (max-width: 768px) {
+  .result-display-container {
+    flex-direction: column; /* 화면이 작아지면 세로로 배치 */
+    align-items: center;
+  }
+  .image-and-boxes, .object-info-panel {
+    min-width: unset; /* 최소 너비 제한 해제 */
+    width: 100%; /* 전체 너비 차지 */
+  }
 }

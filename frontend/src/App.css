@@ -3,8 +3,8 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: linear-gradient(120deg, #f0f4f9 0%, #d9e7fa 100%);
+  font-family: 'Noto Sans KR', 'Pretendard', Arial, sans-serif;
+  background: linear-gradient(120deg, #eaf0fb 0%, #f7faff 100%);
   color: #232946;
   min-height: 100vh;
 }
@@ -149,9 +149,26 @@ button:hover {
   background: linear-gradient(90deg, #232946 0%, #3b4cca 100%);
 }
 
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  /* 중앙 정렬 */
+  padding: 40px 0;
+  box-sizing: border-box;
+}
+
 @media (max-width: 650px) {
   .App { margin: 8px auto; padding: 10px; }
   nav ul { flex-direction: column; gap: 10px; }
   h1 { font-size: 1.5em; }
   .login-type-tabs { flex-direction: column; gap: 8px; }
+}
+
+@media (max-width: 600px) {
+  .app-container {
+    padding: 16px 0;
+  }
 }

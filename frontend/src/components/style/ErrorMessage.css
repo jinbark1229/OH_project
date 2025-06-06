@@ -1,10 +1,12 @@
 /* src/components/ErrorMessage.css */
 .error-message {
-  color: #d32f2f;
-  background: #ffeaea;
-  border: 1px solid #ffbdbd;
-  padding: 10px 16px;
-  margin: 12px 0;
-  border-radius: 4px;
+  color: #e74c3c;
+  background: #fff0f0;
+  border: 1px solid #e74c3c;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-top: 10px;
   font-size: 1em;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.07);
 }

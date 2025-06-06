@@ -2,10 +2,10 @@ from flask import Blueprint, request, jsonify, current_app
 import torch
 from PIL import Image
 
-detect_bp = Blueprint('detect', __name__, url_prefix='/api/detect')
+detect_bp = Blueprint('detect', __name__, url_prefix='/api')
 
-@detect_bp.route('/yolov5', methods=['POST'])
-def yolov5_detect():
+@detect_bp.route('/yolo', methods=['POST'])
+def yolo_detect():
     if 'image' not in request.files:
         return jsonify({'error': '이미지 파일이 필요합니다.'}), 400
 

@@ -1,0 +1,99 @@
+/* src/style/AuthForm.css */
+/* 인증 관련 폼들을 위한 공통 스타일 */
+
+.auth-form-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-color: #f0f2f5;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.auth-form-container h1 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.auth-form {
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 400px;
+}
+
+.auth-label {
+    margin-bottom: 15px;
+    font-weight: bold;
+    color: #555;
+    display: flex;
+    flex-direction: column;
+}
+
+.auth-input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    box-sizing: border-box; /* 패딩이 너비에 포함되도록 */
+}
+
+.auth-input:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.auth-button {
+    background-color: #007bff;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 18px;
+    margin-top: 10px;
+    transition: background-color 0.2s ease;
+}
+
+.auth-button:hover {
+    background-color: #0056b3;
+}
+
+.error-message {
+    color: #dc3545;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.switch-link {
+    margin-top: 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.switch-link p {
+    color: #666;
+    margin-bottom: 0;
+}
+
+.switch-link .auth-button {
+    background-color: #6c757d; /* 다른 색상으로 구분 */
+    font-size: 16px;
+    padding: 10px 15px;
+}
+
+.switch-link .auth-button:hover {
+    background-color: #5a6268;
+}

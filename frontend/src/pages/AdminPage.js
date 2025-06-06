@@ -1,30 +1,18 @@
-import React, { useState } from "react";
-import ImageUploader from "../components/ImageUploader";
-import ResultDisplay from "../components/ResultDisplay";
+// src/pages/AdminPage.js
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import AdminLoginForm from '../components/login/AdminLoginForm';
+import './style/Page.css'; // 경로 수정
 
-function AdminPage() {
-  const [result, setResult] = useState(null);
-
-  const handleImageUpload = async (imageFile) => {
-    // YOLO 백엔드로 이미지 전송 (관리자용)
-    const formData = new FormData();
-    formData.append('image', imageFile);
-
-    const response = await fetch('http://localhost:5000/api/yolo', {
-      method: 'POST',
-      body: formData,
-    });
-    const data = await response.json();
-    setResult(data);
-  };
-
+const AdminPage = () => {
+  const navigate = useNavigate();
   return (
-    <div className="admin-page-container">
-      <h1>관리자 페이지</h1>
-      <ImageUploader onImageUpload={handleImageUpload} />
-      {result && <ResultDisplay imageUrl={result.imageUrl}>{/* 결과 표시 */}</ResultDisplay>}
+    <div className="page-container">
+      <h1>관리자 로그인</h1>
+      <AdminLoginForm />
+      <button className="back-button" onClick={() => navigate('/')}>메인으로</button>
     </div>
   );
-}
+};
 
 export default AdminPage;

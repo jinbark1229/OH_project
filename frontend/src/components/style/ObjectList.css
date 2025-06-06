@@ -3,15 +3,26 @@
   list-style: none;
   padding: 0;
   margin: 0;
+  background: #f4f7fb;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(120, 160, 255, 0.08);
+  border: 1.5px solid #e3e8f7;
 }
 
 .object-list-li {
-  padding: 10px 16px;
-  border-bottom: 1px solid #eee;
+  padding: 12px 18px;
+  border-bottom: 1px solid #e3e8f7;
   cursor: pointer;
-  transition: background 0.2s;
+  font-size: 1.07em;
+  color: #3b4cca;
+  transition: background 0.18s, color 0.18s;
+}
+
+.object-list-li:last-child {
+  border-bottom: none;
 }
 
 .object-list-li:hover {
-  background: #f5f5f5;
+  background: #e3e8f7;
+  color: #2355d6;
 }
