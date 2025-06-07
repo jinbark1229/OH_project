@@ -38,6 +38,8 @@ const App = () => {
   }, []);
 
   const login = (token, user) => {
+    // 혹시 user가 {user: {...}} 구조라면 바로잡기
+    if (user && user.user) user = user.user;
     setUserToken(token);
     setUserInfo(user);
     localStorage.setItem('userToken', JSON.stringify(token));

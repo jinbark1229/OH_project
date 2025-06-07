@@ -78,8 +78,10 @@ const AdminLoginForm = () => {
           className="form-input"
         />
       </div>
+      <button type="submit" className="submit-button">
+        로그인
+      </button>
       {error && <p className="error-message">{error}</p>}
-      <button type="submit" className="submit-button">로그인</button>
     </form>
   );
 };

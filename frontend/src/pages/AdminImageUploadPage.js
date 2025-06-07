@@ -16,7 +16,7 @@ const AdminImageUploadPage = () => {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState(''); // 발견 장소 추가
 
   const handleImageUpload = async (imageFile) => {
     setLoading(true);
@@ -37,17 +37,16 @@ const AdminImageUploadPage = () => {
     const formData = new FormData();
     formData.append('image', imageFile);
     formData.append('description', description);
-    formData.append('location', location);
+    formData.append('location', location); // 발견 장소 추가
+    // 관리자 업로드이므로, 서버에서 user_id를 current_user.id로 자동 설정할 것입니다.
+    // 따라서 여기서는 user_id를 명시적으로 보낼 필요 없습니다.
 
     try {
-      if (!userToken || !userToken.token) {
-        throw new Error('로그인이 필요합니다. 로그인 후 다시 시도해주세요.');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/admin/upload`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/upload`, { // 관리자용 이미지 업로드 엔드포인트
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${userToken.token}`,
+          // 'Content-Type': 'multipart/form-data'는 FormData 사용 시 자동으로 설정되므로 주석 처리
         },
         body: formData,
       });
@@ -58,7 +57,8 @@ const AdminImageUploadPage = () => {
       }
 
       const data = await response.json();
-      setMessage(data.message || '이미지가 성공적으로 등록되었습니다.');
+      setMessage(data.message || '이미지 등록 성공!');
+      // 성공 후 필드 초기화
       setDescription('');
       setLocation('');
 
@@ -104,13 +104,14 @@ const AdminImageUploadPage = () => {
         />
       </div>
 
+      {/* ImageUploader 컴포넌트를 통해 이미지 업로드 */}
       <ImageUploader onImageUpload={handleImageUpload} />
 
-      {loading && <LoadingSpinner />}
-
-      <button className="back-button" onClick={() => navigate('/admin/dashboard')}>
-        대시보드로 돌아가기
-      </button>
+      <div className="button-group">
+        <button className="back-button" onClick={() => navigate('/admin/dashboard')} disabled={loading}>
+          대시보드로 돌아가기
+        </button>
+      </div>
     </div>
   );
 };

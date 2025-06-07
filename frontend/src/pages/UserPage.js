@@ -17,6 +17,8 @@ const UserPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  console.log('userInfo:', userInfo); // 추가된 코드
+
   useEffect(() => {
     if (activeView === 'my_uploads' && userToken) {
       fetchMyLostItems();

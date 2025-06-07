@@ -29,69 +29,62 @@ const RegisterForm = () => {
     if (!/[A-Z]/.test(pwd)) {
       return '비밀번호는 하나 이상의 영어 대문자를 포함해야 합니다.';
     }
-    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(pwd)) {
-      return '비밀번호는 하나 이상의 특수문자(!@#$%^&* 등)를 포함해야 합니다.';
-    }
-    if (!/[0-9]/.test(pwd)) { // 숫자 포함 추가
-      return '비밀번호는 하나 이상의 숫자를 포함해야 합니다.';
-    }
-    if (!/[a-z]/.test(pwd)) { // 소문자 포함 추가
+    if (!/[a-z]/.test(pwd)) {
       return '비밀번호는 하나 이상의 영어 소문자를 포함해야 합니다.';
     }
-    return null;
+    if (!/\d/.test(pwd)) {
+      return '비밀번호는 하나 이상의 숫자를 포함해야 합니다.';
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) {
+      return '비밀번호는 하나 이상의 특수문자를 포함해야 합니다.';
+    }
+    return null; // 유효성 검사 통과
   };
 
-  const handleRegister = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
     setSuccess(null);
 
+    // 프론트엔드 비밀번호 유효성 검사
     const passwordError = validatePassword(password);
     if (passwordError) {
       setError(passwordError);
-      setLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError('비밀번호가 일치하지 않습니다.');
-      setLoading(false);
       return;
     }
 
+    setLoading(true);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, { // 백엔드 경로 변경 (/api/auth/register)
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, email, password, admin_code: adminCode }), // adminCode 추가 전송
+        body: JSON.stringify({ username, email, password, admin_code: adminCode || null }), // 관리자 코드가 없으면 null 전송
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || '회원가입 실패'); // 백엔드 오류 메시지 필드가 'error'인 경우
+        throw new Error(data.error || '회원가입 실패');
       }
 
-      // --- 이 부분이 변경됩니다 ---
-      const is_admin_registered = data.user.is_admin; // 백엔드 응답에서 is_admin 값 가져오기
-      let successMessage = '회원가입이 성공적으로 완료되었습니다. ';
-      let navigatePath = '';
-
-      if (is_admin_registered) {
-        successMessage += '관리자 계정으로 등록되었습니다. 관리자 로그인 페이지로 이동합니다.';
-        navigatePath = '/admin'; // 관리자 로그인 페이지 경로
+      setSuccess(data.message || '회원가입 성공!');
+      // 자동 로그인 시도 (선택 사항)
+      if (data.token && data.user) {
+        login(data.token, data.user);
+        navigate('/user/dashboard'); // 일반 사용자 대시보드로 이동
       } else {
-        successMessage += '로그인 페이지로 이동합니다.';
-        navigatePath = '/login'; // 일반 사용자 로그인 페이지 경로
+        // 자동 로그인되지 않는 경우, 로그인 페이지로 리다이렉트
+        navigate('/login');
       }
-      setSuccess(successMessage);
 
-      setTimeout(() => {
-        navigate(navigatePath);
-      }, 2000);
 
     } catch (e) {
       console.error('회원가입 오류:', e);
@@ -102,32 +95,31 @@ const RegisterForm = () => {
   };
 
   return (
-    <form onSubmit={handleRegister} className="auth-form">
-      <h2>회원가입</h2>
+    <form onSubmit={handleSubmit} className="auth-form register-form">
       {loading && <LoadingSpinner />}
       {error && <ErrorMessage message={error} />}
       {success && <SuccessMessage message={success} />}
 
       <div className="form-group">
-        <label htmlFor="username">사용자 이름:</label>
+        <label htmlFor="username">아이디:</label>
         <input
-          type="text"
           id="username"
-          className="form-input"
+          type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
+          className="form-input"
         />
       </div>
       <div className="form-group">
         <label htmlFor="email">이메일:</label>
         <input
-          type="email"
           id="email"
-          className="form-input"
+          type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          className="form-input"
         />
       </div>
       <div className="form-group">
@@ -173,6 +165,9 @@ const RegisterForm = () => {
       <button type="submit" className="submit-button" disabled={loading}>
         회원가입
       </button>
+      <div className="login-link">
+        이미 계정이 있으신가요? <span onClick={() => navigate('/login')} className="link">로그인</span>
+      </div>
     </form>
   );
 };

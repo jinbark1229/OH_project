@@ -27,12 +27,9 @@ const ResultDisplay = ({ imageUrl, objects }) => {
 
   // 바운딩 박스 좌표 스케일링 함수
   // 백엔드에서 반환하는 좌표가 원본 이미지의 픽셀 값인지, 상대적인 비율인지에 따라 로직이 달라집니다.
-  // 여기서는 백엔드가 0~1 사이의 비율로 좌표를 준다고 가정하고, 현재 렌더링된 이미지 크기에 맞춰 스케일링합니다.
-  // 만약 백엔드가 픽셀 값을 준다면, 이 함수는 필요 없을 수 있습니다.
-  const scaleCoordinates = (box) => {
-    // 실제 이미지의 원본 크기를 알아야 정확한 스케일링이 가능하지만,
-    // 여기서는 렌더링된 이미지의 크기를 기준으로 스케일링합니다.
-    // 백엔드에서 원본 이미지의 width, height를 함께 주면 더 정확합니다.
+  // 여기서는 백엔드가 0~1 사이의 비율로 좌표를 준다고 가정하고, 현재 렌더링된 이미지 크기에 맞춰 스케일링합니다
+  const scaleBox = (box) => {
+    // box는 { x1, y1, x2, y2 }와 같은 형태를 예상
     const { x1, y1, x2, y2 } = box;
     const { width, height } = imageDimensions;
 
@@ -68,16 +65,21 @@ const ResultDisplay = ({ imageUrl, objects }) => {
           ref={imageRef} // 이미지 DOM 요소에 접근하기 위한 ref
         />
         {/* 이미지 위에 바운딩 박스 오버레이 */}
-        {objects && objects.map((object, index) => (
+        {imageDimensions.width > 0 && objects.map((obj, index) => (
           <BoundingBox
-            key={object.id || `${object.className}-${index}`}
-            box={scaleCoordinates(object)} // 스케일링된 좌표 사용
+            key={index} // TODO: 고유 ID가 있다면 object.id 사용
+            box={scaleBox(obj.box)} // obj.box가 {x1, y1, x2, y2} 형태여야 함
+            label={obj.label} // obj.label이 라벨이어야 함
+            isDetected={true} // 항상 탐지된 것으로 표시
+            onClick={() => setSelectedObject(obj)} // 클릭 시 객체 선택
+            isSelected={selectedObject && selectedObject.label === obj.label && selectedObject.box === obj.box} // 선택 상태 강조
           />
         ))}
       </div>
 
-      <div className="object-info-panel">
-        <ObjectList objects={objects} onSelect={setSelectedObject} />
+      <div className="object-details-section">
+        {/* ObjectList에 objects를 그대로 전달하고, ObjectDetail에서 사용할 필드명에 맞게 변환해야 합니다. */}
+        <ObjectList objects={objects.map(obj => ({ className: obj.label, confidence: obj.score, ...obj }))} onSelect={setSelectedObject} />
         {selectedObject && <ObjectDetail object={selectedObject} />}
       </div>
     </div>

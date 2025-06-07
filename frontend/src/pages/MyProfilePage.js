@@ -5,7 +5,7 @@ import { AuthContext } from '../App';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import LogoutButton from '../components/login/LogoutButton';
-import './style/Page.css'; // 경로 수정
+import './style/Page.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -17,6 +17,10 @@ const MyProfilePage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    console.log('userToken:', userToken);
+    if (userToken) {
+      console.log('userToken.token:', userToken.token);
+    }
     if (!userToken) {
       setError('로그인이 필요합니다.');
       setLoading(false);
@@ -25,11 +29,18 @@ const MyProfilePage = () => {
 
     const fetchMyLostItems = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/my_lost_items`, {
+        // 백엔드(app.py)에 정의된 사용자 본인 물건 조회 엔드포인트는 '/api/user/uploaded_items' 입니다.
+        const response = await fetch(`${API_BASE_URL}/api/user/uploaded_items`, {
           headers: {
             'Authorization': `Bearer ${userToken.token}`,
           },
         });
+
+        // JSON이 아닌 응답(HTML 등) 방어
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('서버에서 올바른 JSON이 반환되지 않았습니다.');
+        }
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -85,9 +96,9 @@ const MyProfilePage = () => {
     <div className="page-container">
       <h1>내 프로필 및 등록 물건 조회</h1>
       {userInfo && (
-        <div className="profile-info dashboard-view"> {/* profile-info에도 dashboard-view 적용 */}
-          <p><strong>아이디:</strong> {userInfo.username}</p>
-          <p><strong>이메일:</strong> {userInfo.email}</p>
+        <div className="profile-info dashboard-view">
+          <p><strong>아이디:</strong> {userInfo.user ? userInfo.user.username : userInfo.username}</p>
+          <p><strong>이메일:</strong> {userInfo.user ? userInfo.user.email : userInfo.email}</p>
           {userInfo.is_admin && <p><strong>권한:</strong> 관리자</p>}
         </div>
       )}
@@ -100,7 +111,6 @@ const MyProfilePage = () => {
         <p>등록한 물건이 없습니다.</p>
       )}
 
-      {/* 새로운 그리드 스타일 적용 */}
       <div className="uploaded-items-grid">
         {lostItems.map(item => (
           <div key={item.id} className="item-card">
@@ -108,8 +118,14 @@ const MyProfilePage = () => {
             <div className="item-details">
               <p className="item-description">{item.description}</p>
               <p className="item-location">발견 장소: {item.location}</p>
-              <p>등록일: {new Date(item.created_at).toLocaleDateString()}</p>
-              <p>감지 결과: {item.detection_results || '없음'}</p>
+              <p>등록일: {new Date(item.upload_date || item.created_at).toLocaleDateString()}</p>
+              <p>
+                감지 결과: {
+                  item.predictions
+                    ? JSON.stringify(item.predictions)
+                    : (item.detection_results || '없음')
+                }
+              </p>
               <button className="delete-button" onClick={() => handleDeleteItem(item.id)} disabled={loading}>
                 삭제
               </button>

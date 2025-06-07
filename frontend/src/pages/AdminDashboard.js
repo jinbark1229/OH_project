@@ -27,7 +27,8 @@ const AdminDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/all_lost_items`, { // 모든 물건 가져오는 새 엔드포인트 가정
+      // 모든 물건 가져오는 새 엔드포인트 가정
+      const response = await fetch(`${API_BASE_URL}/api/admin/all_lost_items`, {
         headers: {
           'Authorization': `Bearer ${userToken.token}`,
         },
@@ -39,10 +40,11 @@ const AdminDashboard = () => {
       }
 
       const data = await response.json();
-      setAllItems(data.lost_items);
+      setAllItems(data.lost_items); // 백엔드에서 'lost_items' 키로 묶어 반환할 것으로 예상
+
     } catch (e) {
       console.error('모든 물건 정보 불러오기 오류:', e);
-      setError(e.message || '모든 물건 정보를 불러오는 중 오류가 발생했습니다.');
+      setError(e.message || '물건 정보를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -57,7 +59,7 @@ const AdminDashboard = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost_items/${itemId}`, { // 사용자 API 재사용
+      const response = await fetch(`${API_BASE_URL}/api/lost_items/${itemId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${userToken.token}`,
@@ -70,7 +72,7 @@ const AdminDashboard = () => {
       }
 
       alert('물건 정보가 성공적으로 삭제되었습니다.');
-      setAllItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      setAllItems(prevItems => prevItems.filter(item => item.id !== itemId)); // 삭제 후 목록 업데이트
 
     } catch (e) {
       console.error('물건 삭제 오류:', e);
@@ -80,49 +82,41 @@ const AdminDashboard = () => {
     }
   };
 
-  if (!userInfo || !userInfo.is_admin) {
+  if (!userInfo || !userToken || !userInfo.is_admin) {
     return (
-        <div className="page-container">
-            <h1>접근 권한 없음</h1>
-            <p>관리자만 접근할 수 있는 페이지입니다.</p>
-            <button onClick={() => navigate('/admin')}>관리자 로그인</button>
-        </div>
+      <div className="page-container">
+        <ErrorMessage message="관리자만 접근할 수 있습니다." />
+        <button onClick={() => navigate('/login')}>로그인 페이지로 돌아가기</button>
+      </div>
     );
   }
 
   return (
     <div className="page-container">
       <h1>관리자 대시보드</h1>
-      <p>환영합니다, {userInfo.username} 관리자님!</p>
+      <div className="profile-info dashboard-view">
+        <p><strong>아이디:</strong> {userInfo.username}</p>
+        <p><strong>이메일:</strong> {userInfo.email}</p>
+        <p><strong>권한:</strong> 관리자</p>
+      </div>
 
-      {/* 뷰 전환 버튼 */}
-      <div className="view-switcher">
-        <button 
-          className={`switcher-button ${activeView === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveView('dashboard')}
-        >
-          기본 대시보드
+      <div className="button-group dashboard-buttons">
+        <button onClick={() => setActiveView('dashboard')} className={activeView === 'dashboard' ? 'active' : ''}>
+          대시보드 요약
         </button>
-        <button 
-          className={`switcher-button ${activeView === 'all_items' ? 'active' : ''}`}
-          onClick={() => setActiveView('all_items')}
-        >
-          모든 물건 조회
+        <button onClick={() => setActiveView('all_items')} className={activeView === 'all_items' ? 'active' : ''}>
+          모든 등록 물건 보기
+        </button>
+        <button onClick={() => navigate('/admin/upload')} disabled={loading}>
+          새 물건 등록 (관리자용)
         </button>
       </div>
 
-      {/* 뷰 컨텐츠 */}
       {activeView === 'dashboard' && (
         <div className="dashboard-view">
-          <h2>기본 관리 대시보드</h2>
-          <p>여기에 관리자에게 필요한 핵심 기능을 배치할 수 있습니다.</p>
-          <div className="dashboard-sections">
-            <button className="dashboard-button" onClick={() => navigate('/admin/upload-image')}>
-              잃어버린 물건 이미지 등록
-            </button>
-            {/* 다른 관리 기능 버튼 */}
-            {/* <button className="dashboard-button">사용자 관리</button> */}
-          </div>
+          <h2>대시보드 요약</h2>
+          <p>여기에 관리자 대시보드 요약 정보가 표시됩니다.</p>
+          {/* TODO: 여기에 통계, 최근 활동 등의 관리자 관련 요약 정보를 추가할 수 있습니다. */}
         </div>
       )}
 
@@ -158,7 +152,9 @@ const AdminDashboard = () => {
 
       <div className="button-group">
         <LogoutButton />
-        <button className="back-button" onClick={() => navigate('/')}>메인으로</button>
+        <button className="back-button" onClick={() => navigate('/')}>
+          홈으로 돌아가기
+        </button>
       </div>
     </div>
   );

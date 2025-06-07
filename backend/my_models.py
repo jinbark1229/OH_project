@@ -1,3 +1,4 @@
+# my_models.py
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
@@ -25,6 +26,15 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    # 이 to_dict() 메서드를 추가해주세요!
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,  # <-- 이 줄이 포함되어야 합니다.
+            'is_admin': self.is_admin
+        }
 
 class LostItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)

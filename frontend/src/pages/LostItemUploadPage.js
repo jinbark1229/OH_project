@@ -36,11 +36,7 @@ const LostItemUploadPage = () => {
     formData.append('location', location); // 발견 장소 추가
 
     try {
-      if (!userToken || !userToken.token) {
-        throw new Error('로그인이 필요합니다. 로그인 후 다시 시도해주세요.');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/upload`, {
+      const response = await fetch(`${API_BASE_URL}/api/detect_object`, { // 이미지 업로드 및 객체 탐지 엔드포인트
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${userToken.token}`,
@@ -50,22 +46,17 @@ const LostItemUploadPage = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || '이미지 업로드 실패');
+        throw new Error(errorData.message || '객체 탐지 실패');
       }
 
       const data = await response.json();
-      setDetectedItems(data.detected_objects || []);
-      setUploadedImageUrl(data.imageUrl); // 업로드된 이미지 URL 저장
-
-      if (data.detected_objects && data.detected_objects.length > 0) {
-        setError(null); // 성공적으로 감지되면 에러 메시지 초기화
-      } else {
-        setError('이미지에서 물건을 감지하지 못했습니다. 수동으로 입력하거나 다른 이미지를 시도해보세요.');
-      }
+      setUploadedImageUrl(data.image_url); // 업로드된 이미지 URL 저장
+      setDetectedItems(data.predictions || []); // 감지된 객체 목록 저장 (없으면 빈 배열)
+      setSelectedDescription(''); // 설명 필드 초기화
 
     } catch (e) {
-      console.error('이미지 업로드 오류:', e);
-      setError(e.message || '이미지 업로드 중 오류 발생.');
+      console.error('이미지 업로드 및 탐지 오류:', e);
+      setError(e.message || '이미지 업로드 및 탐지 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -75,29 +66,28 @@ const LostItemUploadPage = () => {
     setSelectedDescription(e.target.value);
   };
 
-  const handleLocationChange = (e) => {
-    setLocation(e.target.value);
-  };
-
   const handleSaveItem = async () => {
-    if (!uploadedImageUrl) {
-      setError('이미지를 먼저 업로드해주세요.');
-      return;
-    }
+    setLoading(true);
+    setError(null);
+
     if (!selectedDescription.trim()) {
-      setError('물건 설명을 선택하거나 입력해주세요.');
+      setError('물건 설명을 입력해주세요.');
+      setLoading(false);
       return;
     }
     if (!location.trim()) {
       setError('발견 장소를 입력해주세요.');
+      setLoading(false);
+      return;
+    }
+    if (!uploadedImageUrl) {
+      setError('먼저 이미지를 업로드하고 객체를 탐지해야 합니다.');
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost_items`, {
+      const response = await fetch(`${API_BASE_URL}/api/lost_items`, { // 물건 정보 저장 엔드포인트
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,7 +97,9 @@ const LostItemUploadPage = () => {
           image_url: uploadedImageUrl,
           description: selectedDescription,
           location: location,
-          detection_results: detectedItems.map(item => item.label).join(', ') // 감지된 항목 문자열로 저장
+          // 감지된 객체 정보는 서버에서 따로 저장하거나, 여기서 JSON 문자열로 함께 보낼 수 있습니다.
+          // 현재 백엔드 LostItem 모델에 detection_results 필드가 있으므로, 여기에 감지된 목록을 저장할 수 있습니다.
+          detection_results: JSON.stringify(detectedItems) // JSON 문자열로 변환하여 저장
         }),
       });
 
@@ -117,10 +109,11 @@ const LostItemUploadPage = () => {
       }
 
       alert('물건 정보가 성공적으로 저장되었습니다!');
-      navigate('/user/dashboard'); // 저장 후 대시보드로 이동
+      navigate('/myprofile'); // 저장 후 내 프로필 페이지로 이동
+
     } catch (e) {
       console.error('물건 정보 저장 오류:', e);
-      setError(e.message || '물건 정보 저장 중 오류 발생.');
+      setError(e.message || '물건 정보 저장 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -128,19 +121,19 @@ const LostItemUploadPage = () => {
 
   return (
     <div className="page-container">
-      <h1>잃어버린 물건 정보 등록</h1>
-      <p>물건 이미지를 업로드하고, 감지된 항목을 확인하거나 직접 설명을 입력하여 등록하세요.</p>
-      
+      <h1>잃어버린 물건 등록</h1>
+      <p>잃어버린 물건의 이미지를 업로드하고 설명을 추가합니다.</p>
+
       {error && <ErrorMessage message={error} />}
 
       <div className="form-group">
-        <label htmlFor="location-input">발견 장소:</label>
+        <label htmlFor="location">발견 장소:</label>
         <input
-          id="location-input"
+          id="location"
           type="text"
           value={location}
-          onChange={handleLocationChange}
-          placeholder="물건을 발견한 장소를 입력하세요 (예: 도서관 2층)"
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="예: 학교 운동장"
           className="form-input"
           disabled={loading}
         />
@@ -183,7 +176,7 @@ const LostItemUploadPage = () => {
       </button>
 
       <div className="button-group">
-        <button className="back-button" onClick={() => navigate('/user/dashboard')}>
+        <button className="back-button" onClick={() => navigate('/user/dashboard')} disabled={loading}>
           대시보드로 돌아가기
         </button>
       </div>

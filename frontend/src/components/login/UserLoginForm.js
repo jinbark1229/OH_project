@@ -34,9 +34,7 @@ const UserLoginForm = () => {
 
       const data = await response.json();
       login(data.token, data.user);
-      
       navigate('/user/dashboard');
-
     } catch (e) {
       console.error('일반 사용자 로그인 오류:', e);
       setError(e.message || '로그인 중 오류가 발생했습니다.');
@@ -67,8 +65,10 @@ const UserLoginForm = () => {
           className="form-input"
         />
       </div>
+      <button type="submit" className="submit-button">
+        로그인
+      </button>
       {error && <p className="error-message">{error}</p>}
-      <button type="submit" className="submit-button">로그인</button>
     </form>
   );
 };
