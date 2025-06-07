@@ -1,7 +1,7 @@
 // src/pages/NotFoundPage.js
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import './style/Page.css'; // 경로 수정
+import { useNavigate } from 'react-router-dom'; // Import order consistency
+import './style/Page.css'; // Consistent path
 
 const NotFoundPage = () => {
   const navigate = useNavigate();

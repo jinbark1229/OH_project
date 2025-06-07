@@ -1,11 +1,11 @@
 // src/pages/AdminImageUploadPage.js
 import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Import order consistency
 import ImageUploader from '../components/ImageUploader';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { AuthContext } from '../App';
-import './style/Page.css'; // 경로 수정
+import './style/Page.css'; // Consistent path
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -36,28 +36,27 @@ const AdminImageUploadPage = () => {
 
     const formData = new FormData();
     formData.append('image', imageFile);
-    formData.append('description', description);
-    formData.append('location', location); // 발견 장소 추가
-    // 관리자 업로드이므로, 서버에서 user_id를 current_user.id로 자동 설정할 것입니다.
-    // 따라서 여기서는 user_id를 명시적으로 보낼 필요 없습니다.
+    formData.append('description', description); // 물건 설명 추가
+    formData.append('location', location);       // 발견 장소 추가
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/upload`, { // 관리자용 이미지 업로드 엔드포인트
+      const response = await fetch(`${API_BASE_URL}/api/admin/upload_lost_item`, { // 관리자용 새 엔드포인트 가정
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${userToken.token}`,
-          // 'Content-Type': 'multipart/form-data'는 FormData 사용 시 자동으로 설정되므로 주석 처리
+          'Authorization': `Bearer ${userToken}`,
         },
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || '이미지 등록 실패');
+        throw new Error(errorData.error || '이미지 업로드 실패');
       }
 
       const data = await response.json();
-      setMessage(data.message || '이미지 등록 성공!');
+      setMessage('이미지 업로드 및 물건 정보 등록 성공!');
+      console.log('업로드 성공:', data);
+
       // 성공 후 필드 초기화
       setDescription('');
       setLocation('');
@@ -105,11 +104,16 @@ const AdminImageUploadPage = () => {
       </div>
 
       {/* ImageUploader 컴포넌트를 통해 이미지 업로드 */}
-      <ImageUploader onImageUpload={handleImageUpload} />
+      <ImageUploader onImageUpload={handleImageUpload} disabled={loading} />
+
+      {loading && <LoadingSpinner />}
 
       <div className="button-group">
-        <button className="back-button" onClick={() => navigate('/admin/dashboard')} disabled={loading}>
+        <button className="back-button" onClick={() => navigate('/admin/dashboard')}>
           대시보드로 돌아가기
+        </button>
+        <button className="back-button" onClick={() => navigate('/')}>
+          메인으로
         </button>
       </div>
     </div>

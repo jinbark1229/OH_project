@@ -1,8 +1,8 @@
 // src/pages/LoginPage.js
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Import order consistency
 import UserLoginForm from '../components/login/UserLoginForm';
-import './style/Page.css';
+import './style/Page.css'; // Consistent path
 
 const LoginPage = () => {
   const navigate = useNavigate();

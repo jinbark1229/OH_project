@@ -1,11 +1,11 @@
 // src/pages/LostItemUploadPage.js
 import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Import order consistency
 import ImageUploader from '../components/ImageUploader';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { AuthContext } from '../App';
-import './style/Page.css'; // 경로 수정
+import './style/Page.css'; // Consistent path
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -36,27 +36,93 @@ const LostItemUploadPage = () => {
     formData.append('location', location); // 발견 장소 추가
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/detect_object`, { // 이미지 업로드 및 객체 탐지 엔드포인트
+      // 이미지 업로드 및 객체 감지 요청
+      const response = await fetch(`${API_BASE_URL}/api/upload-image`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${userToken.token}`,
+          'Authorization': `Bearer ${userToken}`,
         },
         body: formData,
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('인증 실패. 다시 로그인해주세요.');
+        }
         const errorData = await response.json();
-        throw new Error(errorData.message || '객체 탐지 실패');
+        throw new Error(errorData.error || '이미지 업로드 및 감지 실패');
       }
 
       const data = await response.json();
       setUploadedImageUrl(data.image_url); // 업로드된 이미지 URL 저장
-      setDetectedItems(data.predictions || []); // 감지된 객체 목록 저장 (없으면 빈 배열)
-      setSelectedDescription(''); // 설명 필드 초기화
+      setDetectedItems(data.predictions || []); // 감지된 객체 목록 저장
+
+      if (data.predictions && data.predictions.length > 0) {
+        // 첫 번째 감지된 객체를 기본 설명으로 설정
+        setSelectedDescription(data.predictions[0].label);
+      } else {
+        setSelectedDescription('');
+      }
 
     } catch (e) {
-      console.error('이미지 업로드 및 탐지 오류:', e);
-      setError(e.message || '이미지 업로드 및 탐지 중 오류가 발생했습니다.');
+      console.error('이미지 업로드 및 감지 오류:', e);
+      setError(e.message || '이미지 업로드 중 오류 발생.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveItem = async () => {
+    setLoading(true);
+    setError(null);
+
+    if (!uploadedImageUrl) {
+      setError('먼저 이미지를 업로드하고 물건을 감지해주세요.');
+      setLoading(false);
+      return;
+    }
+    if (!selectedDescription.trim()) {
+      setError('물건 설명을 입력하거나 선택해주세요.');
+      setLoading(false);
+      return;
+    }
+    if (!location.trim()) {
+      setError('발견 장소를 입력해주세요.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lost_items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`,
+        },
+        body: JSON.stringify({
+          image_url: uploadedImageUrl,
+          description: selectedDescription,
+          location: location,
+          detection_results: detectedItems.map(item => ({ label: item.label, score: item.score })), // 감지 결과 저장
+          user_id: userInfo.id // 현재 로그인한 사용자 ID
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('인증 실패. 다시 로그인해주세요.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || '물건 정보 저장 실패');
+      }
+
+      const data = await response.json();
+      alert('물건 정보가 성공적으로 저장되었습니다!');
+      console.log('물건 저장 성공:', data);
+      navigate('/user/dashboard'); // 저장 후 대시보드로 이동
+    } catch (e) {
+      console.error('물건 정보 저장 오류:', e);
+      setError(e.message || '물건 정보 저장 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -66,74 +132,21 @@ const LostItemUploadPage = () => {
     setSelectedDescription(e.target.value);
   };
 
-  const handleSaveItem = async () => {
-    setLoading(true);
-    setError(null);
-
-    if (!selectedDescription.trim()) {
-      setError('물건 설명을 입력해주세요.');
-      setLoading(false);
-      return;
-    }
-    if (!location.trim()) {
-      setError('발견 장소를 입력해주세요.');
-      setLoading(false);
-      return;
-    }
-    if (!uploadedImageUrl) {
-      setError('먼저 이미지를 업로드하고 객체를 탐지해야 합니다.');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/lost_items`, { // 물건 정보 저장 엔드포인트
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userToken.token}`,
-        },
-        body: JSON.stringify({
-          image_url: uploadedImageUrl,
-          description: selectedDescription,
-          location: location,
-          // 감지된 객체 정보는 서버에서 따로 저장하거나, 여기서 JSON 문자열로 함께 보낼 수 있습니다.
-          // 현재 백엔드 LostItem 모델에 detection_results 필드가 있으므로, 여기에 감지된 목록을 저장할 수 있습니다.
-          detection_results: JSON.stringify(detectedItems) // JSON 문자열로 변환하여 저장
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '물건 정보 저장 실패');
-      }
-
-      alert('물건 정보가 성공적으로 저장되었습니다!');
-      navigate('/myprofile'); // 저장 후 내 프로필 페이지로 이동
-
-    } catch (e) {
-      console.error('물건 정보 저장 오류:', e);
-      setError(e.message || '물건 정보 저장 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="page-container">
       <h1>잃어버린 물건 등록</h1>
-      <p>잃어버린 물건의 이미지를 업로드하고 설명을 추가합니다.</p>
+      <p>잃어버린 물건의 이미지를 업로드하고 발견 장소를 입력하여 등록하세요.</p>
 
       {error && <ErrorMessage message={error} />}
 
       <div className="form-group">
-        <label htmlFor="location">발견 장소:</label>
+        <label htmlFor="location">발견 장소 (필수):</label>
         <input
           id="location"
           type="text"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          placeholder="예: 학교 운동장"
+          placeholder="예: 학교 운동장 또는 건물 이름"
           className="form-input"
           disabled={loading}
         />
@@ -176,8 +189,11 @@ const LostItemUploadPage = () => {
       </button>
 
       <div className="button-group">
-        <button className="back-button" onClick={() => navigate('/user/dashboard')} disabled={loading}>
-          대시보드로 돌아가기
+        <button className="back-button" onClick={() => navigate('/user/dashboard')}>
+          내 대시보드로
+        </button>
+        <button className="back-button" onClick={() => navigate('/')}>
+          메인으로
         </button>
       </div>
     </div>

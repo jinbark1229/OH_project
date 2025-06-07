@@ -1,9 +1,9 @@
 // src/pages/HomePage.js
 import React, { useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Import order consistency
 import { AuthContext } from '../App';
 import LogoutButton from '../components/login/LogoutButton';
-import './style/Page.css';
+import './style/Page.css'; // Consistent path
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -55,9 +55,9 @@ const HomePage = () => {
         )}
         <button
           className="main-button"
-          onClick={() => navigate('/admin')}
+          onClick={() => navigate('/search')}
         >
-          관리자 로그인
+          물건 찾기
         </button>
       </div>
     </div>

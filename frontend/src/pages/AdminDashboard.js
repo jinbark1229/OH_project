@@ -1,11 +1,11 @@
 // src/pages/AdminDashboard.js
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Import order consistency
 import { AuthContext } from '../App';
 import LogoutButton from '../components/login/LogoutButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import './style/Page.css'; // 경로 수정
+import './style/Page.css'; // Consistent path
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -30,50 +30,58 @@ const AdminDashboard = () => {
       // 모든 물건 가져오는 새 엔드포인트 가정
       const response = await fetch(`${API_BASE_URL}/api/admin/all_lost_items`, {
         headers: {
-          'Authorization': `Bearer ${userToken.token}`,
+          'Authorization': `Bearer ${userToken}`,
         },
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          navigate('/admin');
+          return;
+        }
         const errorData = await response.json();
-        throw new Error(errorData.message || '모든 물건 정보를 가져오는데 실패했습니다.');
+        throw new Error(errorData.error || '물건 목록을 가져오는 데 실패했습니다.');
       }
 
       const data = await response.json();
-      setAllItems(data.lost_items); // 백엔드에서 'lost_items' 키로 묶어 반환할 것으로 예상
-
+      setAllItems(data);
     } catch (e) {
-      console.error('모든 물건 정보 불러오기 오류:', e);
-      setError(e.message || '물건 정보를 불러오는 중 오류가 발생했습니다.');
+      console.error('관리자 모든 물건 목록 조회 오류:', e);
+      setError(e.message || '물건 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteItem = async (itemId) => {
-    if (!window.confirm('정말로 이 물건 정보를 삭제하시겠습니까?')) {
+    if (!window.confirm('정말로 이 물건을 삭제하시겠습니까?')) {
       return;
     }
 
     setLoading(true);
     setError(null);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/api/lost_items/${itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/delete_item/${itemId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${userToken.token}`,
+          'Authorization': `Bearer ${userToken}`,
         },
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          navigate('/admin');
+          return;
+        }
         const errorData = await response.json();
-        throw new Error(errorData.message || '물건 정보 삭제 실패');
+        throw new Error(errorData.error || '물건 삭제에 실패했습니다.');
       }
 
-      alert('물건 정보가 성공적으로 삭제되었습니다.');
-      setAllItems(prevItems => prevItems.filter(item => item.id !== itemId)); // 삭제 후 목록 업데이트
-
+      // 삭제 성공 시 목록에서 해당 아이템 제거
+      setAllItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      alert('물건이 성공적으로 삭제되었습니다.');
     } catch (e) {
       console.error('물건 삭제 오류:', e);
       setError(e.message || '물건 삭제 중 오류가 발생했습니다.');
@@ -82,11 +90,12 @@ const AdminDashboard = () => {
     }
   };
 
-  if (!userInfo || !userToken || !userInfo.is_admin) {
+
+  if (!userInfo || !userInfo.is_admin) {
     return (
       <div className="page-container">
-        <ErrorMessage message="관리자만 접근할 수 있습니다." />
-        <button onClick={() => navigate('/login')}>로그인 페이지로 돌아가기</button>
+        <ErrorMessage message="관리자만 접근할 수 있는 페이지입니다." />
+        <button className="back-button" onClick={() => navigate('/')}>메인으로</button>
       </div>
     );
   }
@@ -94,29 +103,36 @@ const AdminDashboard = () => {
   return (
     <div className="page-container">
       <h1>관리자 대시보드</h1>
-      <div className="profile-info dashboard-view">
-        <p><strong>아이디:</strong> {userInfo.username}</p>
-        <p><strong>이메일:</strong> {userInfo.email}</p>
-        <p><strong>권한:</strong> 관리자</p>
+      <p>관리자님, 환영합니다!</p>
+      <p>ID: {userInfo.username}</p>
+
+      <div className="view-switcher">
+        <button
+          className={`main-button ${activeView === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveView('dashboard')}
+        >
+          관리자 메뉴
+        </button>
+        <button
+          className={`main-button ${activeView === 'all_items' ? 'active' : ''}`}
+          onClick={() => setActiveView('all_items')}
+        >
+          모든 물건 관리
+        </button>
       </div>
 
-      <div className="button-group dashboard-buttons">
-        <button onClick={() => setActiveView('dashboard')} className={activeView === 'dashboard' ? 'active' : ''}>
-          대시보드 요약
-        </button>
-        <button onClick={() => setActiveView('all_items')} className={activeView === 'all_items' ? 'active' : ''}>
-          모든 등록 물건 보기
-        </button>
-        <button onClick={() => navigate('/admin/upload')} disabled={loading}>
-          새 물건 등록 (관리자용)
-        </button>
-      </div>
 
       {activeView === 'dashboard' && (
         <div className="dashboard-view">
-          <h2>대시보드 요약</h2>
-          <p>여기에 관리자 대시보드 요약 정보가 표시됩니다.</p>
-          {/* TODO: 여기에 통계, 최근 활동 등의 관리자 관련 요약 정보를 추가할 수 있습니다. */}
+          <h2>관리자 메뉴</h2>
+          <div className="button-group">
+            <button
+              className="main-button"
+              onClick={() => navigate('/admin/upload')}
+            >
+              물건 직접 등록
+            </button>
+          </div>
         </div>
       )}
 
@@ -152,9 +168,7 @@ const AdminDashboard = () => {
 
       <div className="button-group">
         <LogoutButton />
-        <button className="back-button" onClick={() => navigate('/')}>
-          홈으로 돌아가기
-        </button>
+        <button className="back-button" onClick={() => navigate('/')}>메인으로</button>
       </div>
     </div>
   );

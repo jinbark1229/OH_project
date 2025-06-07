@@ -1,11 +1,11 @@
 // src/pages/UserPage.js
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Import order consistency
 import { AuthContext } from '../App';
 import LogoutButton from '../components/login/LogoutButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import './style/Page.css'; // 경로 수정
+import './style/Page.css'; // Consistent path
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -31,49 +31,58 @@ const UserPage = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/my_lost_items`, {
         headers: {
-          'Authorization': `Bearer ${userToken.token}`,
+          'Authorization': `Bearer ${userToken}`,
         },
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          logout(); // 토큰 만료 시 로그아웃 처리
+          navigate('/login'); // 로그인 페이지로 리디렉션
+          return;
+        }
         const errorData = await response.json();
-        throw new Error(errorData.message || '내 물건 정보를 가져오는데 실패했습니다.');
+        throw new Error(errorData.error || '등록한 물건 목록을 가져오는 데 실패했습니다.');
       }
 
       const data = await response.json();
-      setLostItems(data.lost_items);
+      setLostItems(data);
     } catch (e) {
-      console.error('내 물건 정보 불러오기 오류:', e);
-      setError(e.message || '물건 정보를 불러오는 중 오류가 발생했습니다.');
+      console.error('내 물건 목록 조회 오류:', e);
+      setError(e.message || '물건 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteItem = async (itemId) => {
-    if (!window.confirm('정말로 이 물건 정보를 삭제하시겠습니까?')) {
+    if (!window.confirm('정말로 이 물건을 삭제하시겠습니까?')) {
       return;
     }
 
     setLoading(true);
     setError(null);
-
     try {
       const response = await fetch(`${API_BASE_URL}/api/lost_items/${itemId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${userToken.token}`,
+          'Authorization': `Bearer ${userToken}`,
         },
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
         const errorData = await response.json();
-        throw new Error(errorData.message || '물건 정보 삭제 실패');
+        throw new Error(errorData.error || '물건 삭제에 실패했습니다.');
       }
 
-      alert('물건 정보가 성공적으로 삭제되었습니다.');
+      // 삭제 성공 시 목록에서 해당 아이템 제거
       setLostItems(prevItems => prevItems.filter(item => item.id !== itemId));
-
+      alert('물건이 성공적으로 삭제되었습니다.');
     } catch (e) {
       console.error('물건 삭제 오류:', e);
       setError(e.message || '물건 삭제 중 오류가 발생했습니다.');
@@ -84,46 +93,48 @@ const UserPage = () => {
 
   if (!userInfo) {
     return (
-        <div className="page-container">
-            <h1>로그인 필요</h1>
-            <p>이 페이지에 접근하려면 로그인해야 합니다.</p>
-            <button onClick={() => navigate('/login')}>로그인</button>
-        </div>
+      <div className="page-container">
+        <ErrorMessage message="로그인이 필요합니다." />
+        <button className="back-button" onClick={() => navigate('/login')}>로그인 페이지로</button>
+      </div>
     );
   }
 
   return (
     <div className="page-container">
-      <h1>사용자 대시보드</h1>
-      <p>환영합니다, {userInfo.username}님!</p>
+      <h1>환영합니다, {userInfo.username}!</h1>
+      <p>이곳에서 잃어버린 물건을 등록하고 내가 등록한 물건을 관리할 수 있습니다.</p>
 
-      {/* 뷰 전환 버튼 */}
       <div className="view-switcher">
-        <button 
-          className={`switcher-button ${activeView === 'dashboard' ? 'active' : ''}`}
+        <button
+          className={`main-button ${activeView === 'dashboard' ? 'active' : ''}`}
           onClick={() => setActiveView('dashboard')}
         >
-          기본 대시보드
+          대시보드
         </button>
-        <button 
-          className={`switcher-button ${activeView === 'my_uploads' ? 'active' : ''}`}
+        <button
+          className={`main-button ${activeView === 'my_uploads' ? 'active' : ''}`}
           onClick={() => setActiveView('my_uploads')}
         >
-          내 등록 물건
+          내가 등록한 물건
         </button>
       </div>
 
-      {/* 뷰 컨텐츠 */}
       {activeView === 'dashboard' && (
         <div className="dashboard-view user-main-view">
-          <h2>기본 대시보드</h2>
-          <p>여기에 사용자에게 필요한 추가적인 정보를 배치할 수 있습니다.</p>
-          <div className="dashboard-sections">
-            <button className="dashboard-button" onClick={() => navigate('/user/upload')}>
-              잃어버린 물건 정보 등록하기
+          <h2>무엇을 도와드릴까요?</h2>
+          <div className="button-group">
+            <button
+              className="main-button"
+              onClick={() => navigate('/user/upload')}
+            >
+              물건 등록하기
             </button>
-            <button className="dashboard-button" onClick={() => navigate('/user/profile')}>
-              내 프로필 정보 확인
+            <button
+              className="main-button"
+              onClick={() => navigate('/my-profile')}
+            >
+              내 정보 확인 및 물건 관리
             </button>
           </div>
         </div>
