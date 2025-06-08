@@ -55,10 +55,11 @@ def token_required(f):
 
 def admin_required(f):
     @wraps(f)
-    @token_required
     def decorated(current_user, *args, **kwargs):
-        if not current_user.is_admin:
-            return jsonify({'message': '관리자 권한이 필요합니다.'}), 403
+        if not current_user or not getattr(current_user, 'is_admin', False):
+            logger.warning("admin_required: 관리자 권한 없음 또는 사용자 정보 누락")
+            return jsonify({"message": "관리자 권한이 필요합니다."}), 403
+        logger.info(f"admin_required: 관리자 {current_user.username} 권한 확인 성공")
         return f(current_user, *args, **kwargs)
     return decorated
 
@@ -187,3 +188,10 @@ def admin_login():
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
     return jsonify({'message': '로그아웃 성공'}), 200
+
+@auth_bp.route('/admin/upload_lost_item', methods=['POST'])
+@token_required
+@admin_required
+def admin_upload_lost_item(current_user):
+    # TODO: Implement the logic for uploading a lost item
+    return jsonify({'message': 'Lost item upload endpoint (not yet implemented).'}), 200

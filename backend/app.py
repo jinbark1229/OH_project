@@ -22,7 +22,9 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+CORS(app)  # 모든 경로에 대해 CORS 허용
+# 또는 특정 경로만 허용하려면 아래와 같이 사용
+# CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 load_dotenv()
 
@@ -40,16 +42,31 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
 
 db.init_app(app)
 
+# YOLOv5 모델 로드 시 CPU 강제 사용 예시
 try:
     yolov5_repo_path = os.path.join(os.getcwd(), 'yolov5')
     if not os.path.exists(yolov5_repo_path):
         logger.warning(f"YOLOv5 repository not found at {yolov5_repo_path}. Attempting to clone...")
-    model = torch.hub.load(yolov5_repo_path, 'yolov5s', source='local', force_reload=False)
+    model = torch.hub.load(yolov5_repo_path, 'yolov5s', source='local', force_reload=False).cpu()  # <- CPU 강제
     model.eval()
-    logger.info("YOLOv5 모델 로드 성공")
+    logger.info("YOLOv5 모델 로드 성공 (CPU)")
 except Exception as e:
     logger.error(f"YOLOv5 모델 로드 실패: {e}")
     model = None
+
+# YOLOv5 모델을 app.config에 저장 (app 초기화 후)
+try:
+    logger.info("YOLOv5 모델 로드 중...")
+    # 로컬 경로에서 YOLOv5 모델을 로드 (source='local' 추가)
+    # YOLO_MODEL_PATH는 yolov5 레포지토리의 경로여야 합니다.
+    app.config['YOLO_MODEL'] = torch.hub.load(
+        YOLO_MODEL_PATH, 'yolov5s', pretrained=True,
+        source='local'  # 로컬 경로에서 모델 로드
+    ).cpu()
+    logger.info("YOLOv5 모델 로드 성공 (CPU)")
+except Exception as e:
+    logger.error(f"YOLOv5 모델 로드 실패: {e}", exc_info=True)
+    app.config['YOLO_MODEL'] = None  # 모델 로드 실패 시 None으로 설정
 
 with app.app_context():
     db.create_all()
@@ -178,6 +195,82 @@ def admin_upload_image(current_user):
         logger.error(f"admin_upload_image: 이미지 등록 중 오류 발생: {e}", exc_info=True)
         return jsonify({'error': f'이미지 등록 중 오류 발생: {e}'}), 500
 
+@app.route('/api/admin/upload_lost_item', methods=['POST'])
+@token_required
+@admin_required
+def upload_admin_lost_item(current_user):  # 반드시 current_user 인자를 받아야 함
+    try:
+        # 1. 파일 확인
+        if 'image' not in request.files:
+            logger.error("이미지 파일이 요청에 포함되지 않았습니다.")
+            return jsonify({"error": "No image file provided"}), 400
+
+        image_file = request.files['image']
+        if image_file.filename == '':
+            logger.error("파일 이름이 없습니다.")
+            return jsonify({"error": "No selected file"}), 400
+
+        # 2. 설명 및 장소 확인
+        description = request.form.get('description')
+        location = request.form.get('location')
+
+        if not description or not description.strip():
+            logger.error("물건 설명이 누락되었습니다.")
+            return jsonify({"error": "Description is required"}), 400
+        if not location or not location.strip():
+            logger.error("발견 장소가 누락되었습니다.")
+            return jsonify({"error": "Location is required"}), 400
+
+        # 3. 파일 저장 경로 및 이름 생성
+        filename = secure_filename(image_file.filename)
+        upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+            logger.info(f"UPLOAD_FOLDER '{app.config['UPLOAD_FOLDER']}'를 생성했습니다.")
+
+        image_file.save(upload_path)
+        logger.info(f"이미지 저장 성공: {upload_path}")
+
+        # 4. YOLOv5 모델 감지
+        detection_results = None
+        try:
+            img = Image.open(upload_path)
+            if app.config['YOLO_MODEL']:
+                results = app.config['YOLO_MODEL'](img)
+                # 예시: pandas DataFrame을 dict로 변환
+                detection_results = results.pandas().xyxy[0].to_dict(orient="records")
+            else:
+                detection_results = "YOLOv5 모델 로드 실패로 감지 불가"
+            logger.info(f"YOLOv5 감지 결과: {detection_results}")
+        except Exception as yolo_e:
+            logger.error(f"YOLOv5 모델 추론 중 오류 발생: {yolo_e}", exc_info=True)
+            detection_results = f"감지 오류 발생: {yolo_e}"
+
+        # 5. 데이터베이스에 정보 저장
+        # LostItem 모델에 저장
+        # 실제로는 detection_results를 JSON 문자열로 저장
+        # image_url은 프론트에서 접근 가능한 경로로 지정
+        item = LostItem(
+            description=description,
+            location=location,
+            image_url=f"/uploads/{filename}",
+            user_id=current_user.id,
+            detection_results=json.dumps(detection_results)
+        )
+        db.session.add(item)
+        db.session.commit()
+        logger.info(f"데이터베이스에 물건 정보 저장 성공: {item.id}")
+
+        # 6. 성공 응답
+        return jsonify({
+            "message": "이미지 등록 성공!",
+            "detection_results": detection_results
+        }), 200
+
+    except Exception as e:
+        logger.error(f"upload_admin_lost_item: 이미지 등록 중 치명적인 오류 발생: {e}", exc_info=True)
+        raise  # 전역 핸들러로 넘겨서 상세 traceback 출력
+
 @app.route('/api/admin/all_lost_items', methods=['GET'])
 @token_required
 @admin_required  # 관리자만 접근 가능
@@ -203,7 +296,7 @@ def get_all_lost_items(current_user):
                 "user_id": item.user_id  # 등록자 ID 포함
             })
         logger.info(f"get_all_lost_items: 관리자 {current_user.username}가 모든 물건 목록 조회 성공")
-        return jsonify({'lost_items': items_data}), 200
+        return jsonify({'all_items': items_data}), 200
     except Exception as e:
         logger.error(f"get_all_lost_items: 모든 물건 목록 조회 중 오류 발생: {e}", exc_info=True)
         return jsonify({'error': f'Error fetching all items: {e}'}), 500
@@ -320,6 +413,12 @@ def login():
     else:
         return jsonify({"error": "아이디 또는 비밀번호가 올바르지 않습니다."}), 401
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    print(traceback.format_exc())  # 터미널에 상세 오류 출력
+    return jsonify({"error": f"서버 내부 오류: {str(e)}"}), 500  # 괄호 위치 수정
+
 @app.after_request
 def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -329,4 +428,5 @@ def add_security_headers(response):
     return response
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # app.run(debug=True)  # 이렇게 실행하거나
+    app.run(host='0.0.0.0', port=5000, debug=True)  # 호스트와 포트 지정, 디버그 모드 활성화

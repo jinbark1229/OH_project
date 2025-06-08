@@ -1,9 +1,9 @@
 // src/pages/HomePage.js
 import React, { useContext } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import order consistency
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../App';
 import LogoutButton from '../components/login/LogoutButton';
-import './style/Page.css'; // Consistent path
+import './style/Page.css';
 
 const HomePage = () => {
   const navigate = useNavigate();

@@ -2,8 +2,8 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../App';
-import './style/AuthForm.css'; // 공통 폼 스타일 임포트
-import './style/LoginForm.css'; // 로그인 폼에 특화된 스타일 (선택 사항)
+import './style/auth-form.css'; // 공통 폼 스타일 임포트
+import './style/login-form.css'; // 로그인 폼에 특화된 스타일 (선택 사항)
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 

@@ -262,3 +262,68 @@ body {
   color: #666;
   margin-bottom: 10px;
 }
+
+.uploaded-items-grid .item-card {
+  /* 기존 아이템 카드 스타일 */
+}
+
+.item-details .form-group {
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.item-details label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.item-details input.form-input {
+  width: calc(100% - 20px);
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* 특징 입력 필드에 대한 특정 스타일 */
+.item-details input.feature-input {
+  margin-bottom: 5px;
+}
+
+.edit-button, .save-button, .cancel-button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+  margin-right: 8px;
+}
+
+.edit-button {
+  background-color: #007bff;
+  color: white;
+}
+
+.edit-button:hover {
+  background-color: #0056b3;
+}
+
+.save-button {
+  background-color: #28a745;
+  color: white;
+}
+
+.save-button:hover {
+  background-color: #218838;
+}
+
+.cancel-button {
+  background-color: #6c757d;
+  color: white;
+}
+
+.cancel-button:hover {
+  background-color: #5a6268;
+}

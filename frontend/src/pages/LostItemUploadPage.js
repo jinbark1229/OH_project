@@ -1,11 +1,11 @@
 // src/pages/LostItemUploadPage.js
 import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import order consistency
+import { useNavigate } from 'react-router-dom';
 import ImageUploader from '../components/ImageUploader';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { AuthContext } from '../App';
-import './style/Page.css'; // Consistent path
+import './style/Page.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -16,14 +16,14 @@ const LostItemUploadPage = () => {
   const [error, setError] = useState(null);
   const [detectedItems, setDetectedItems] = useState([]);
   const [selectedDescription, setSelectedDescription] = useState('');
-  const [location, setLocation] = useState(''); // 발견 장소 추가
-  const [uploadedImageUrl, setUploadedImageUrl] = useState(null); // 업로드된 이미지 URL 저장
+  const [location, setLocation] = useState('');
+  const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
 
   const handleImageUpload = async (imageFile) => {
     setLoading(true);
     setError(null);
     setDetectedItems([]);
-    setUploadedImageUrl(null); // 새로운 업로드 시작 시 초기화
+    setUploadedImageUrl(null);
 
     if (!location.trim()) {
       setError('발견 장소를 입력해주세요.');
@@ -33,10 +33,9 @@ const LostItemUploadPage = () => {
 
     const formData = new FormData();
     formData.append('image', imageFile);
-    formData.append('location', location); // 발견 장소 추가
+    formData.append('location', location);
 
     try {
-      // 이미지 업로드 및 객체 감지 요청
       const response = await fetch(`${API_BASE_URL}/api/upload-image`, {
         method: 'POST',
         headers: {
@@ -54,11 +53,10 @@ const LostItemUploadPage = () => {
       }
 
       const data = await response.json();
-      setUploadedImageUrl(data.image_url); // 업로드된 이미지 URL 저장
-      setDetectedItems(data.predictions || []); // 감지된 객체 목록 저장
+      setUploadedImageUrl(data.image_url);
+      setDetectedItems(data.predictions || []);
 
       if (data.predictions && data.predictions.length > 0) {
-        // 첫 번째 감지된 객체를 기본 설명으로 설정
         setSelectedDescription(data.predictions[0].label);
       } else {
         setSelectedDescription('');
@@ -103,8 +101,8 @@ const LostItemUploadPage = () => {
           image_url: uploadedImageUrl,
           description: selectedDescription,
           location: location,
-          detection_results: detectedItems.map(item => ({ label: item.label, score: item.score })), // 감지 결과 저장
-          user_id: userInfo.id // 현재 로그인한 사용자 ID
+          detection_results: detectedItems.map(item => ({ label: item.label, score: item.score })),
+          user_id: userInfo.id
         }),
       });
 
@@ -119,7 +117,7 @@ const LostItemUploadPage = () => {
       const data = await response.json();
       alert('물건 정보가 성공적으로 저장되었습니다!');
       console.log('물건 저장 성공:', data);
-      navigate('/user/dashboard'); // 저장 후 대시보드로 이동
+      navigate('/user/dashboard');
     } catch (e) {
       console.error('물건 정보 저장 오류:', e);
       setError(e.message || '물건 정보 저장 중 오류가 발생했습니다.');

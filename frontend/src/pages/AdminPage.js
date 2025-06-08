@@ -1,8 +1,8 @@
 // src/pages/AdminPage.js
 import React from 'react';
-import { useNavigate } from 'react-router-dom'; // Import order consistency
+import { useNavigate } from 'react-router-dom';
 import AdminLoginForm from '../components/login/AdminLoginForm';
-import './style/Page.css'; // Consistent path
+import './style/Page.css';
 
 const AdminPage = () => {
   const navigate = useNavigate();

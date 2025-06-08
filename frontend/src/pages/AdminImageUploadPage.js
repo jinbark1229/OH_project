@@ -1,24 +1,42 @@
 // src/pages/AdminImageUploadPage.js
-import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import order consistency
+import React, { useState, useContext, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ImageUploader from '../components/ImageUploader';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { AuthContext } from '../App';
-import './style/Page.css'; // Consistent path
+import './style/Page.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
 const AdminImageUploadPage = () => {
-  const { userToken } = useContext(AuthContext);
+  const { userToken, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState(''); // 발견 장소 추가
+  const [location, setLocation] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
 
-  const handleImageUpload = async (imageFile) => {
+  // logout을 useCallback으로 감싸서 의존성 문제 방지
+  const memoizedLogout = useCallback(() => {
+    logout();
+    navigate('/admin');
+  }, [logout, navigate]);
+
+  useEffect(() => {
+    if (!userToken) {
+      setError('관리자 로그인이 필요합니다.');
+      memoizedLogout();
+    }
+  }, [userToken, memoizedLogout]);
+
+  const handleImageSelected = (imageFile) => {
+    setSelectedImage(imageFile);
+  };
+
+  const handleUploadClick = async () => {
     setLoading(true);
     setError(null);
     setMessage(null);
@@ -33,14 +51,19 @@ const AdminImageUploadPage = () => {
       setLoading(false);
       return;
     }
+    if (!selectedImage) {
+      setError('이미지를 선택해주세요.');
+      setLoading(false);
+      return;
+    }
 
     const formData = new FormData();
-    formData.append('image', imageFile);
-    formData.append('description', description); // 물건 설명 추가
-    formData.append('location', location);       // 발견 장소 추가
+    formData.append('image', selectedImage);
+    formData.append('description', description);
+    formData.append('location', location);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/upload_lost_item`, { // 관리자용 새 엔드포인트 가정
+      const response = await fetch(`${API_BASE_URL}/api/admin/upload_lost_item`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${userToken}`,
@@ -49,18 +72,29 @@ const AdminImageUploadPage = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '이미지 업로드 실패');
+        // 백엔드에서 에러 발생 시
+        if (response.status === 401) {
+          logout();
+          navigate('/admin');
+          return;
+        }
+        // JSON이 아닌 HTML 응답을 받았을 경우를 대비하여 text로 읽어들임
+        const errorText = await response.text();
+        console.error('백엔드 응답 에러 (HTML/비 JSON):', errorText);
+        // 에러 메시지를 파싱할 수 있으면 파싱하고, 아니면 일반 에러 메시지
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || '이미지 등록에 실패했습니다.');
+        } catch (parseError) {
+          throw new Error(`이미지 등록에 실패했습니다. 서버 응답: ${response.status} - ${errorText.substring(0, 100)}...`);
+        }
       }
 
       const data = await response.json();
-      setMessage('이미지 업로드 및 물건 정보 등록 성공!');
-      console.log('업로드 성공:', data);
-
-      // 성공 후 필드 초기화
+      setMessage('이미지 등록 성공! 감지 결과: ' + (data.detection_results || '없음'));
       setDescription('');
       setLocation('');
-
+      setSelectedImage(null);
     } catch (e) {
       console.error('관리자 이미지 등록 오류:', e);
       setError(e.message || '이미지 등록 중 오류 발생.');
@@ -103,19 +137,24 @@ const AdminImageUploadPage = () => {
         />
       </div>
 
-      {/* ImageUploader 컴포넌트를 통해 이미지 업로드 */}
-      <ImageUploader onImageUpload={handleImageUpload} disabled={loading} />
+      {/* 파일 선택만 담당 */}
+      <ImageUploader onImageSelected={handleImageSelected} disabled={loading} />
 
-      {loading && <LoadingSpinner />}
-
+      {/* 실제 업로드 버튼 */}
       <div className="button-group">
-        <button className="back-button" onClick={() => navigate('/admin/dashboard')}>
+        <button
+          className="submit-button"
+          onClick={handleUploadClick}
+          disabled={loading}
+        >
+          이미지 등록
+        </button>
+        <button className="back-button" onClick={() => navigate('/admin/dashboard')} disabled={loading}>
           대시보드로 돌아가기
         </button>
-        <button className="back-button" onClick={() => navigate('/')}>
-          메인으로
-        </button>
       </div>
+
+      {loading && <LoadingSpinner />}
     </div>
   );
 };

@@ -2,7 +2,7 @@
 import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../App';
-import './style/LogoutButton.css'; // LogoutButton 스타일 임포트
+import './style/logout-button.css'; // LogoutButton 스타일 임포트
 
 const LogoutButton = () => {
   const { logout } = useContext(AuthContext);
