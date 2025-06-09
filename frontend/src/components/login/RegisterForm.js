@@ -5,7 +5,6 @@ import { AuthContext } from '../../App';
 import LoadingSpinner from '../LoadingSpinner';
 import ErrorMessage from '../ErrorMessage';
 import SuccessMessage from '../SuccessMessage';
-import './style/auth-form.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -14,7 +13,7 @@ const RegisterForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [adminCode, setAdminCode] = useState(''); // 관리자 코드 상태 추가
+  const [adminCode, setAdminCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -84,8 +83,6 @@ const RegisterForm = () => {
         // 자동 로그인되지 않는 경우, 로그인 페이지로 리다이렉트
         navigate('/login');
       }
-
-
     } catch (e) {
       console.error('회원가입 오류:', e);
       setError(e.message || '회원가입 중 오류가 발생했습니다.');
@@ -95,7 +92,7 @@ const RegisterForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="auth-form register-form">
+    <form onSubmit={handleSubmit} className="auth-form-container">
       {loading && <LoadingSpinner />}
       {error && <ErrorMessage message={error} />}
       {success && <SuccessMessage message={success} />}
@@ -129,15 +126,11 @@ const RegisterForm = () => {
           id="password"
           className="form-input"
           value={password}
-          onChange={(e) => {
-            setPassword(e.target.value);
-            // const pwdError = validatePassword(e.target.value);
-            // setError(pwdError);
-          }}
+          onChange={(e) => setPassword(e.target.value)}
           required
         />
         <p className="password-requirements">
-          (최소 8자, 1개 이상의 대문자, 소문자, 숫자, 특수문자 포함) {/* 안내 문구 업데이트 */}
+          (최소 8자, 1개 이상의 대문자, 소문자, 숫자, 특수문자 포함)
         </p>
       </div>
       <div className="form-group">
@@ -151,23 +144,19 @@ const RegisterForm = () => {
           required
         />
       </div>
-      {/* 관리자 코드 입력 필드 추가 */}
       <div className="form-group">
         <label htmlFor="adminCode">관리자 코드 (선택 사항):</label>
         <input
-          type="password" /* 보안을 위해 password 타입 권장 */
+          type="password"
           id="adminCode"
           className="form-input"
           value={adminCode}
           onChange={(e) => setAdminCode(e.target.value)}
         />
       </div>
-      <button type="submit" className="submit-button" disabled={loading}>
+      <button type="submit" className="auth-submit-button" disabled={loading}>
         회원가입
       </button>
-      <div className="login-link">
-        이미 계정이 있으신가요? <span onClick={() => navigate('/login')} className="link">로그인</span>
-      </div>
     </form>
   );
 };

@@ -1,18 +1,24 @@
-/* src/components/ImageUploader.css */
+/* src/components/style/ImageUploader.css */
+
 .image-uploader-container {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column; /* 요소를 세로로 정렬 */
+  align-items: center; /* 가로 중앙 정렬 */
+  gap: 15px; /* 요소들 간 간격 (버튼과 미리보기 등) */
   margin-bottom: 18px;
   background: #f4f7fb;
-  padding: 14px 18px;
+  padding: 14px 18px; /* 위아래, 좌우 패딩 */
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(120, 160, 255, 0.08);
-  border: 1.5px solid #e3e8f7;
+  border: 1.5px solid #e3e8f7; /* 첫 번째 정의의 border 사용 */
+  text-align: center; /* 텍스트 가운데 정렬 (필요시) */
 }
 
+/* 나머지 기존 스타일은 그대로 유지 */
+
 .image-uploader-input {
-  flex: 1;
+  /* display: none; 이므로 이 스타일은 크게 중요하지 않지만, 나중에 input 요소를 직접 보이게 할 경우를 대비 */
+  flex: 1; /* flex-direction: column; 일 때는 크게 의미 없음 */
   font-size: 1em;
   color: #3b4cca;
   background: #fff;
@@ -20,6 +26,7 @@
   border-radius: 8px;
   padding: 8px;
   transition: border 0.2s;
+  width: 100%; /* input 너비 */
 }
 
 .image-uploader-input:focus {
@@ -27,6 +34,7 @@
   outline: none;
 }
 
+/* button에 .image-uploader-button 클래스를 적용할 경우 사용 */
 .image-uploader-button {
   background: linear-gradient(90deg, #7b9fff 0%, #4f8cff 100%);
   color: #fff;
@@ -48,34 +56,6 @@
   transform: translateY(-2px) scale(1.03);
 }
 
-/* src/components/style/ImageUploader.css 에 추가 */
-
-.image-uploader-container {
-  /* 기존 스타일 */
-  display: flex;
-  flex-direction: column; /* 세로로 배치 */
-  align-items: center; /* 가운데 정렬 */
-  gap: 15px; /* 요소들 간 간격 */
-  padding: 15px;
-  border: 2px dashed #a7a7a7;
-  border-radius: 8px;
-  background-color: #f7f7f7;
-  text-align: center;
-}
-
-.image-uploader-input {
-  /* 파일 선택 버튼 기본 스타일 */
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  cursor: pointer;
-  width: 100%;
-}
-
-.image-uploader-input:hover {
-  border-color: #007bff;
-}
-
 .image-preview-container {
   width: 100%;
   max-width: 300px; /* 미리보기 최대 너비 */
@@ -87,6 +67,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  /* padding: 5px; 제거 (원하는 경우 다시 추가) */
 }
 
 .image-preview {

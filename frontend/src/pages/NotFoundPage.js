@@ -1,7 +1,7 @@
 // src/pages/NotFoundPage.js
 import React from 'react';
 import { useNavigate } from 'react-router-dom'; // Import order consistency
-import './style/Page.css'; // Consistent path
+import './style/Page.css';
 
 const NotFoundPage = () => {
   const navigate = useNavigate();

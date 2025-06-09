@@ -12,7 +12,6 @@ const LoginPage = () => {
       <UserLoginForm />
       <div className="button-group">
         <button className="back-button" onClick={() => navigate('/register')}>회원가입</button>
-        <button className="back-button" onClick={() => navigate('/admin')}>관리자 로그인</button>
         <button className="back-button" onClick={() => navigate('/')}>메인으로</button>
       </div>
     </div>

@@ -1,333 +1,259 @@
 # app.py
 # Flask 애플리케이션의 메인 파일입니다.
-import os
-import json
-import logging
-import datetime
-import torch
 from PIL import Image
-from flask import Flask, request, jsonify, send_from_directory
+import os, json, logging, datetime, torch
+from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash
+from flask import Flask, request, jsonify, send_from_directory, current_app
 from flask_cors import CORS
 from dotenv import load_dotenv
-from werkzeug.utils import secure_filename
-import sys
-from flask import Response
-from flask_jwt_extended import create_access_token
 
-from .my_models import db, User, LostItem
-from .auth import auth_bp, token_required, admin_required
+from .my_models import db, User, LostItem, LostReport
+from .auth import auth_bp, token_required, admin_required, generate_token
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-CORS(app)  # 모든 경로에 대해 CORS 허용
-# 또는 특정 경로만 허용하려면 아래와 같이 사용
-# CORS(app, resources={r"/api/*": {"origins": "*"}})
-
+# static_folder는 주로 React 빌드 파일을 서비스할 때 사용되므로, 'build'로 최종 설정합니다.
+# 'uploads'는 send_from_directory에서 명시적으로 경로를 지정합니다.
+app = Flask(__name__, static_folder='build') # Flask 앱 초기화 시 바로 'build'로 설정
+CORS(app)
 load_dotenv()
 
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///users.db')
-UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
-YOLO_MODEL_PATH = os.environ.get('YOLO_MODEL_PATH', 'yolov5')
-JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your_jwt_secret_key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///users.db')
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your_jwt_secret_key')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(days=1)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = JWT_SECRET_KEY
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)
-
+# UPLOAD_FOLDER의 절대 경로를 미리 계산해둡니다.
+# Flask 앱이 실행되는 디렉토리(app.root_path)를 기준으로 uploads 폴더를 찾습니다.
+UPLOAD_DIRECTORY_PATH = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'])
+os.makedirs(UPLOAD_DIRECTORY_PATH, exist_ok=True) # 절대 경로를 사용하여 디렉토리 생성
 db.init_app(app)
 
-# YOLOv5 모델 로드 시 CPU 강제 사용 예시
 try:
-    yolov5_repo_path = os.path.join(os.getcwd(), 'yolov5')
-    if not os.path.exists(yolov5_repo_path):
-        logger.warning(f"YOLOv5 repository not found at {yolov5_repo_path}. Attempting to clone...")
-    model = torch.hub.load(yolov5_repo_path, 'yolov5s', source='local', force_reload=False).cpu()  # <- CPU 강제
+    model = torch.hub.load(
+        os.environ.get('YOLO_MODEL_PATH', 'yolov5'), 'yolov5s', source='local', pretrained=True
+    )
     model.eval()
-    logger.info("YOLOv5 모델 로드 성공 (CPU)")
-except Exception as e:
-    logger.error(f"YOLOv5 모델 로드 실패: {e}")
-    model = None
-
-# YOLOv5 모델을 app.config에 저장 (app 초기화 후)
-try:
-    logger.info("YOLOv5 모델 로드 중...")
-    # 로컬 경로에서 YOLOv5 모델을 로드 (source='local' 추가)
-    # YOLO_MODEL_PATH는 yolov5 레포지토리의 경로여야 합니다.
-    app.config['YOLO_MODEL'] = torch.hub.load(
-        YOLO_MODEL_PATH, 'yolov5s', pretrained=True,
-        source='local'  # 로컬 경로에서 모델 로드
-    ).cpu()
-    logger.info("YOLOv5 모델 로드 성공 (CPU)")
+    app.config['YOLO_MODEL'] = model
+    logger.info("YOLOv5 모델이 CPU로 성공적으로 로드되었습니다.")
 except Exception as e:
     logger.error(f"YOLOv5 모델 로드 실패: {e}", exc_info=True)
-    app.config['YOLO_MODEL'] = None  # 모델 로드 실패 시 None으로 설정
+    app.config['YOLO_MODEL'] = None
 
 with app.app_context():
     db.create_all()
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+# --- parse_predictions 함수 개선 ---
+def parse_predictions(detection_results):
+    try:
+        if not detection_results:
+            return []
+        parsed_data = json.loads(detection_results)
+        if isinstance(parsed_data, list):
+            validated_predictions = []
+            for p in parsed_data:
+                if 'label' in p and 'score' in p:
+                    try:
+                        score_val = float(p['score'])
+                        if not (0.0 <= score_val <= 1.0):
+                            score_val = 0.0
+                        validated_predictions.append({**p, 'score': score_val})
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid score found in DB: {p.get('score')}. Defaulting to 0.0.")
+                        validated_predictions.append({**p, 'score': 0.0})
+                else:
+                    validated_predictions.append(p)
+            return validated_predictions
+        elif isinstance(parsed_data, dict) and 'error' in parsed_data:
+            return [{"error": parsed_data['error']}]
+        else:
+            return []
+    except json.JSONDecodeError as jde:
+        logger.warning(f"JSON 파싱 오류: {jde}, 원본 데이터: {detection_results}")
+        return [{"error": f"감지 결과 파싱 오류: {jde}"}]
+    except Exception as e:
+        logger.error(f"예측 결과 파싱 중 예외 발생: {e}", exc_info=True)
+        return [{"error": f"알 수 없는 파싱 오류: {e}"}]
 
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def item_to_dict(item):
+    """LostItem 객체를 딕셔너리 형태로 변환합니다."""
+    return {
+        "id": item.id,
+        "imageUrl": item.image_url,
+        "description": item.description,
+        "location": item.location,
+        "upload_date": (item.created_at or item.upload_date).isoformat() if hasattr(item, 'created_at') else item.upload_date.isoformat(),
+        "predictions": parse_predictions(item.detection_results),
+        "user_id": item.user_id
+    }
 
-@app.route('/uploads/<filename>')
+def lost_report_to_dict(report):
+    return {
+        "id": report.id,
+        "userId": report.user_id,
+        "itemDescription": report.item_description,
+        "lostLocation": report.lost_location,
+        "lostDate": report.lost_date.isoformat() if report.lost_date else None,
+        "imageUrl": report.image_url,
+        "detectionResults": parse_predictions(report.detection_results)
+    }
+
+# 이미지 서빙 라우트 수정
+@app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-@app.route('/favicon.ico')
-def favicon():
-    # 아무 내용 없이 성공적인 응답 (204 No Content)을 보냅니다.
-    return Response(status=204)
+    # send_from_directory에 절대 경로를 사용합니다.
+    return send_from_directory(UPLOAD_DIRECTORY_PATH, filename) # <-- UPLOAD_DIRECTORY_PATH 사용
 
 @app.route('/api/detect_object', methods=['POST'])
 @token_required
 def detect_object(current_user):
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image file provided'}), 400
-    if not request.form.get('location'):
-        return jsonify({'error': 'Location is required'}), 400
+    image_file = request.files.get('image')
+    location = request.form.get('location')
+    if not image_file or not location or image_file.filename == '':
+        return jsonify({'error': '이미지와 장소를 모두 입력하세요.'}), 400
 
-    image_file = request.files['image']
-    location = request.form['location']
+    filename = secure_filename(image_file.filename)
+    image_path = os.path.join(UPLOAD_DIRECTORY_PATH, filename)
+    image_file.save(image_path)
+    image_url = f"/uploads/{filename}" # 프론트엔드에 반환하는 URL은 상대 경로 유지
 
-    if image_file.filename == '':
-        return jsonify({'error': 'No selected image file'}), 400
+    predictions_data = []
+    if app.config['YOLO_MODEL']:
+        try:
+            img = Image.open(image_path).convert('RGB')
+            results = app.config['YOLO_MODEL'](img, conf=0.25, iou=0.45, device='cpu')
+            if results.pred and len(results.pred) > 0 and len(results.pred[0]) > 0:
+                for *xyxy, conf, cls in results.pred[0]:
+                    label = app.config['YOLO_MODEL'].names[int(cls)] if hasattr(app.config['YOLO_MODEL'], 'names') else str(int(cls))
+                    try:
+                        score_val = float(conf)
+                        if not (0.0 <= score_val <= 1.0):
+                            logger.warning(f"Conf score {conf} resulted in out-of-range value in /detect_object. Set to 0.0.")
+                            score_val = 0.0
+                    except Exception:
+                        logger.warning(f"Invalid confidence value encountered: {conf} in /detect_object. Defaulting score to 0.0.")
+                        score_val = 0.0
+                    predictions_data.append({
+                        "label": label,
+                        "score": score_val,
+                        "box": [float(v) for v in xyxy]
+                    })
+                logger.info(f"이미지 감지 성공: {len(predictions_data)}개 객체 발견")
+            else:
+                logger.info("YOLO 모델이 객체를 감지하지 못했습니다: /api/detect_object.")
+                predictions_data.append({"info": "이미지에서 감지된 물건이 없습니다."})
+        except Exception as yolo_e:
+            logger.error(f"YOLO 감지 중 오류 발생: {yolo_e}", exc_info=True)
+            predictions_data = [{"error": f"YOLO 감지 처리 실패: {str(yolo_e)}"}]
+    else:
+        logger.warning("YOLO 모델이 로드되지 않아 객체 감지를 수행할 수 없습니다.")
+        predictions_data = [{"warning": "YOLO 모델이 백엔드에 로드되지 않았습니다."}]
 
-    try:
-        filename = secure_filename(image_file.filename)
-        upload_folder = os.path.join(app.static_folder, 'uploads')
-        os.makedirs(upload_folder, exist_ok=True)
-        image_path = os.path.join(upload_folder, filename)
-        image_file.save(image_path)
-        image_url = f"/static/uploads/{filename}"
-
-        # 실제 YOLOv5 모델을 호출해야 하지만, 여기서는 임시 데이터 사용
-        predictions_data = [
-            {"label": "가방", "score": 0.85, "box": [0.1, 0.2, 0.3, 0.4]},
-            {"label": "지갑", "score": 0.72, "box": [0.5, 0.6, 0.7, 0.8]}
-        ]
-
-        logger.info(f"detect_object: 사용자 {current_user.username}가 이미지 업로드 및 객체 탐지 성공. Image URL: {image_url}")
-        return jsonify({'message': '이미지 업로드 및 객체 탐지 성공!', 'image_url': image_url, 'predictions': predictions_data}), 200
-
-    except Exception as e:
-        logger.error(f"detect_object: 이미지 업로드 및 탐지 중 오류 발생: {e}", exc_info=True)
-        return jsonify({'error': f'이미지 업로드 및 탐지 중 오류 발생: {e}'}), 500
+    return jsonify({
+        'message': '이미지 업로드 및 객체 탐지 성공!',
+        'image_url': image_url,
+        'predictions': predictions_data,
+        'location': location
+    }), 200
 
 @app.route('/api/user/uploaded_items', methods=['GET'])
 @token_required
 def get_uploaded_items(current_user):
-    try:
-        user_items = LostItem.query.filter_by(user_id=current_user.id).all()
-        items_data = []
-        for item in user_items:
-            predictions = []
-            if item.detection_results:
-                try:
-                    predictions = json.loads(item.detection_results)
-                except json.JSONDecodeError:
-                    logger.warning(f"Failed to decode detection_results for item {item.id}")
-                    predictions = []
-            items_data.append({
-                "id": item.id,
-                "imageUrl": item.image_url,
-                "description": item.description,
-                "location": item.location,
-                "upload_date": item.upload_date.isoformat(),
-                "predictions": predictions
-            })
-        logger.info(f"get_uploaded_items: 사용자 {current_user.username}의 물건 목록 조회 성공")
-        return jsonify(items_data), 200, {'Content-Type': 'application/json; charset=utf-8'}
-    except Exception as e:
-        logger.error(f"get_uploaded_items: 사용자의 물건 목록 조회 중 오류 발생: {e}", exc_info=True)
-        return jsonify({'error': f'Error fetching uploaded items: {e}'}), 500, {'Content-Type': 'application/json; charset=utf-8'}
+    items = LostItem.query.filter_by(user_id=current_user.id).all()
+    return jsonify([item_to_dict(item) for item in items]), 200
 
-@app.route('/api/admin/upload', methods=['POST'])
-@token_required
-@admin_required  # 관리자만 접근 가능하도록 추가
-def admin_upload_image(current_user):
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image file provided'}), 400
-    if not request.form.get('description'):
-        return jsonify({'error': 'Description is required'}), 400
-    if not request.form.get('location'):
-        return jsonify({'error': 'Location is required'}), 400
-
-    image_file = request.files['image']
-    description = request.form['description']
-    location = request.form['location']
-
-    if image_file.filename == '':
-        return jsonify({'error': 'No selected image file'}), 400
-
-    try:
-        filename = secure_filename(image_file.filename)
-        upload_folder = os.path.join(app.static_folder, 'uploads')
-        os.makedirs(upload_folder, exist_ok=True)
-        image_path = os.path.join(upload_folder, filename)
-        image_file.save(image_path)
-        image_url = f"/static/uploads/{filename}"
-
-        predictions_data = []  # 실제 모델 결과로 채워질 수 있음
-
-        new_item = LostItem(
-            user_id=current_user.id,
-            image_url=image_url,
-            description=description,
-            location=location,
-            detection_results=json.dumps(predictions_data) if predictions_data else None
-        )
-        db.session.add(new_item)
-        db.session.commit()
-
-        logger.info(f"admin_upload_image: 관리자 {current_user.username}가 물건 등록 성공. Item ID: {new_item.id}")
-        return jsonify({'message': '이미지가 성공적으로 등록되었습니다!', 'item_id': new_item.id, 'image_url': image_url}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"admin_upload_image: 이미지 등록 중 오류 발생: {e}", exc_info=True)
-        return jsonify({'error': f'이미지 등록 중 오류 발생: {e}'}), 500
-
-@app.route('/api/admin/upload_lost_item', methods=['POST'])
+@app.route('/api/admin/upload_item', methods=['POST'])
 @token_required
 @admin_required
-def upload_admin_lost_item(current_user):  # 반드시 current_user 인자를 받아야 함
-    try:
-        # 1. 파일 확인
-        if 'image' not in request.files:
-            logger.error("이미지 파일이 요청에 포함되지 않았습니다.")
-            return jsonify({"error": "No image file provided"}), 400
+def admin_upload_item(current_user):
+    image_file = request.files.get('image')
+    description = request.form.get('description')
+    location = request.form.get('location')
 
-        image_file = request.files['image']
-        if image_file.filename == '':
-            logger.error("파일 이름이 없습니다.")
-            return jsonify({"error": "No selected file"}), 400
+    if not image_file or not description or not location or image_file.filename == '':
+        return jsonify({'error': '이미지, 설명, 장소를 모두 입력하세요.'}), 400
 
-        # 2. 설명 및 장소 확인
-        description = request.form.get('description')
-        location = request.form.get('location')
+    filename = secure_filename(image_file.filename)
+    image_path = os.path.join(UPLOAD_DIRECTORY_PATH, filename) # 절대 경로 사용
+    image_file.save(image_path)
+    image_url = f"/uploads/{filename}"
 
-        if not description or not description.strip():
-            logger.error("물건 설명이 누락되었습니다.")
-            return jsonify({"error": "Description is required"}), 400
-        if not location or not location.strip():
-            logger.error("발견 장소가 누락되었습니다.")
-            return jsonify({"error": "Location is required"}), 400
-
-        # 3. 파일 저장 경로 및 이름 생성
-        filename = secure_filename(image_file.filename)
-        upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if not os.path.exists(app.config['UPLOAD_FOLDER']):
-            os.makedirs(app.config['UPLOAD_FOLDER'])
-            logger.info(f"UPLOAD_FOLDER '{app.config['UPLOAD_FOLDER']}'를 생성했습니다.")
-
-        image_file.save(upload_path)
-        logger.info(f"이미지 저장 성공: {upload_path}")
-
-        # 4. YOLOv5 모델 감지
-        detection_results = None
+    detection_results_data = []
+    if app.config['YOLO_MODEL']:
         try:
-            img = Image.open(upload_path)
-            if app.config['YOLO_MODEL']:
-                results = app.config['YOLO_MODEL'](img)
-                # 예시: pandas DataFrame을 dict로 변환
-                detection_results = results.pandas().xyxy[0].to_dict(orient="records")
+            img = Image.open(image_path).convert('RGB')
+            results = app.config['YOLO_MODEL'](img, conf=0.25, iou=0.45, device='cpu')
+            if results.pred and len(results.pred) > 0 and len(results.pred[0]) > 0:
+                for *xyxy, conf, cls in results.pred[0]:
+                    label = app.config['YOLO_MODEL'].names[int(cls)] if hasattr(app.config['YOLO_MODEL'], 'names') else str(int(cls))
+                    try:
+                        score_val = float(conf)
+                        if not (0.0 <= score_val <= 1.0):
+                            logger.warning(f"Conf score {conf} resulted in out-of-range value in /admin/upload_item. Set to 0.0.")
+                            score_val = 0.0
+                    except Exception:
+                        logger.warning(f"Invalid confidence value encountered: {conf} in /admin/upload_item. Defaulting score to 0.0.")
+                        score_val = 0.0
+                    detection_results_data.append({
+                        "label": label,
+                        "score": score_val,
+                        "box": [float(v) for v in xyxy]
+                    })
+                logger.info(f"관리자 업로드 - 이미지 감지 성공: {len(detection_results_data)}개 객체 발견")
             else:
-                detection_results = "YOLOv5 모델 로드 실패로 감지 불가"
-            logger.info(f"YOLOv5 감지 결과: {detection_results}")
+                logger.info("YOLO 모델이 객체를 감지하지 못했습니다: /api/admin/upload_item.")
+                detection_results_data.append({"info": "이미지에서 감지된 물건이 없습니다."})
         except Exception as yolo_e:
-            logger.error(f"YOLOv5 모델 추론 중 오류 발생: {yolo_e}", exc_info=True)
-            detection_results = f"감지 오류 발생: {yolo_e}"
+            logger.error(f"관리자 업로드 중 YOLO 감지 오류: {yolo_e}", exc_info=True)
+            detection_results_data = [{"error": f"YOLO 감지 처리 실패: {str(yolo_e)}"}]
+    else:
+        logger.warning("YOLO 모델이 로드되지 않아 관리자 업로드 시 객체 감지를 수행할 수 없습니다.")
+        detection_results_data = [{"warning": "YOLO 모델이 백엔드에 로드되지 않았습니다."}]
 
-        # 5. 데이터베이스에 정보 저장
-        # LostItem 모델에 저장
-        # 실제로는 detection_results를 JSON 문자열로 저장
-        # image_url은 프론트에서 접근 가능한 경로로 지정
-        item = LostItem(
-            description=description,
-            location=location,
-            image_url=f"/uploads/{filename}",
-            user_id=current_user.id,
-            detection_results=json.dumps(detection_results)
-        )
-        db.session.add(item)
-        db.session.commit()
-        logger.info(f"데이터베이스에 물건 정보 저장 성공: {item.id}")
-
-        # 6. 성공 응답
-        return jsonify({
-            "message": "이미지 등록 성공!",
-            "detection_results": detection_results
-        }), 200
-
-    except Exception as e:
-        logger.error(f"upload_admin_lost_item: 이미지 등록 중 치명적인 오류 발생: {e}", exc_info=True)
-        raise  # 전역 핸들러로 넘겨서 상세 traceback 출력
+    new_item = LostItem(
+        user_id=current_user.id,
+        image_url=image_url,
+        description=description,
+        location=location,
+        detection_results=json.dumps(detection_results_data)
+    )
+    db.session.add(new_item)
+    db.session.commit()
+    return jsonify({
+        'message': '물건 정보가 성공적으로 등록되었습니다!',
+        'item_id': new_item.id,
+        'image_url': image_url,
+        'predictions': detection_results_data
+    }), 200
 
 @app.route('/api/admin/all_lost_items', methods=['GET'])
 @token_required
-@admin_required  # 관리자만 접근 가능
+@admin_required
 def get_all_lost_items(current_user):
-    try:
-        all_items = LostItem.query.all()
-        items_data = []
-        for item in all_items:
-            predictions = []
-            if item.detection_results:
-                try:
-                    predictions = json.loads(item.detection_results)
-                except json.JSONDecodeError:
-                    logger.warning(f"Failed to decode detection_results for item {item.id}")
-                    predictions = []
-            items_data.append({
-                "id": item.id,
-                "imageUrl": item.image_url,
-                "description": item.description,
-                "location": item.location,
-                "upload_date": item.upload_date.isoformat(),
-                "predictions": predictions,
-                "user_id": item.user_id  # 등록자 ID 포함
-            })
-        logger.info(f"get_all_lost_items: 관리자 {current_user.username}가 모든 물건 목록 조회 성공")
-        return jsonify({'all_items': items_data}), 200
-    except Exception as e:
-        logger.error(f"get_all_lost_items: 모든 물건 목록 조회 중 오류 발생: {e}", exc_info=True)
-        return jsonify({'error': f'Error fetching all items: {e}'}), 500
+    all_items = LostItem.query.all()
+    return jsonify({'all_items': [item_to_dict(item) for item in all_items]}), 200
 
 @app.route('/api/user/profile', methods=['GET'])
 @token_required
 def get_user_profile(current_user):
-    try:
-        user_data = {
-            "id": current_user.id,
-            "username": current_user.username,
-            "email": current_user.email,
-            "is_admin": current_user.is_admin
-        }
-        logger.info(f"get_user_profile: 사용자 {current_user.username}의 프로필 조회 성공")
-        return jsonify(user_data), 200
-    except Exception as e:
-        logger.error(f"get_user_profile: 사용자 프로필 조회 중 오류 발생: {e}", exc_info=True)
-        return jsonify({'error': f'Error fetching user profile: {e}'}), 500
+    return jsonify({
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "is_admin": current_user.is_admin
+    }), 200
 
 @app.route('/health')
 def health_check():
     return 'Flask 서버가 정상적으로 동작 중입니다.', 200
 
-app.static_folder = 'build'
+# app.static_folder = 'build' # 이미 Flask 앱 초기화 시 설정됨
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react(path):
-    if path.startswith('uploads/'):
-        return send_from_directory(app.config['UPLOAD_FOLDER'], path.replace('uploads/', ''))
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     else:
@@ -342,91 +268,239 @@ def create_lost_item(current_user):
     image_url = data.get('image_url')
     description = data.get('description')
     location = data.get('location')
-    detection_results_json = data.get('detection_results')  # JSON 문자열로 받음
-
+    detection_results_json = data.get('detection_results')
     if not image_url or not description or not location:
         return jsonify({'error': 'Image URL, description, and location are required'}), 400
-
-    try:
-        new_item = LostItem(
-            user_id=current_user.id,
-            image_url=image_url,
-            description=description,
-            location=location,
-            detection_results=detection_results_json  # JSON 문자열 그대로 저장
-        )
-        db.session.add(new_item)
-        db.session.commit()
-        logger.info(f"create_lost_item: 사용자 {current_user.username}가 물건 정보 저장 성공. Item ID: {new_item.id}")
-        return jsonify({'message': '물건 정보가 성공적으로 저장되었습니다!', 'item_id': new_item.id}), 201
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"create_lost_item: 물건 정보 저장 중 오류 발생: {e}", exc_info=True)
-        return jsonify({'error': f'물건 정보 저장 중 오류 발생: {e}'}), 500
+    new_item = LostItem(
+        user_id=current_user.id,
+        image_url=image_url,
+        description=description,
+        location=location,
+        detection_results=detection_results_json
+    )
+    db.session.add(new_item)
+    db.session.commit()
+    return jsonify({'message': '물건 정보가 성공적으로 저장되었습니다!', 'item_id': new_item.id}), 201
 
 @app.route('/api/my_lost_items', methods=['GET'])
 @token_required
 def get_my_lost_items(current_user):
-    try:
-        items = LostItem.query.filter_by(user_id=current_user.id).all()
-        items_data = []
-        for item in items:
-            predictions = []
-            if item.detection_results:
-                try:
-                    predictions = json.loads(item.detection_results)
-                except json.JSONDecodeError:
-                    logger.warning(f"Failed to decode detection_results for item {item.id}")
-                    predictions = []
-            items_data.append({
-                "id": item.id,
-                "imageUrl": item.image_url,
-                "description": item.description,
-                "location": item.location,
-                "upload_date": item.upload_date.isoformat(),
-                "predictions": predictions
+    items = LostItem.query.filter_by(user_id=current_user.id).all()
+    return jsonify({'lost_items': [item_to_dict(item) for item in items]}), 200
+
+@app.route('/api/report_lost_item', methods=['POST'])
+@token_required
+def report_lost_item(current_user):
+    image_file = request.files.get('image')
+    item_description = request.form.get('item_description')
+    lost_location = request.form.get('lost_location')
+    lost_date_str = request.form.get('lost_date')
+
+    if not item_description or not lost_location:
+        return jsonify({'error': '물건 설명과 잃어버린 장소는 필수입니다.'}), 400
+
+    image_url = None
+    detection_results_json = None
+
+    if image_file and image_file.filename != '':
+        filename = secure_filename(image_file.filename)
+        image_path = os.path.join(UPLOAD_DIRECTORY_PATH, filename) # 절대 경로 사용
+        image_file.save(image_path)
+        image_url = f"/uploads/{filename}"
+
+        if app.config['YOLO_MODEL']:
+            try:
+                img = Image.open(image_path).convert('RGB')
+                results = app.config['YOLO_MODEL'](img, conf=0.25, iou=0.45, device='cpu')
+                predictions_data = []
+                if results.pred and len(results.pred) > 0 and len(results.pred[0]) > 0:
+                    for *xyxy, conf, cls in results.pred[0]:
+                        label = app.config['YOLO_MODEL'].names[int(cls)] if hasattr(app.config['YOLO_MODEL'], 'names') else str(int(cls))
+                        try:
+                            score_val = float(conf)
+                            if not (0.0 <= score_val <= 1.0):
+                                logger.warning(f"Conf score {conf} resulted in out-of-range value in /report_lost_item. Set to 0.0.")
+                                score_val = 0.0
+                        except Exception:
+                            logger.warning(f"Invalid confidence value encountered: {conf} in /report_lost_item. Defaulting score to 0.0.")
+                            score_val = 0.0
+                        predictions_data.append({
+                            "label": label, "score": score_val, "box": [float(v) for v in xyxy]
+                        })
+                    detection_results_json = json.dumps(predictions_data)
+                    logger.info(f"사용자 잃어버린 물건 - 이미지 감지 성공: {len(predictions_data)}개 객체 발견")
+                else:
+                    logger.info("YOLO 모델이 객체를 감지하지 못했습니다: /api/report_lost_item.")
+                    detection_results_json = json.dumps([{"info": "이미지에서 감지된 물건이 없습니다."}])
+            except Exception as yolo_e:
+                logger.error(f"사용자 잃어버린 물건 감지 중 오류: {yolo_e}", exc_info=True)
+                detection_results_json = json.dumps([{"error": f"YOLO 감지 처리 실패: {str(yolo_e)}"}])
+        else:
+            logger.warning("YOLO 모델이 로드되지 않아 사용자 잃어버린 물건 감지를 수행할 수 없습니다.")
+            detection_results_json = json.dumps([{"warning": "YOLO 모델이 백엔드에 로드되지 않았습니다."}])
+
+    lost_date = None
+    if lost_date_str:
+        try:
+            lost_date = datetime.datetime.strptime(lost_date_str, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'error': '유효하지 않은 날짜 형식입니다.YYYY-MM-DD 형식을 사용하세요.'}), 400
+
+    new_lost_report = LostReport(
+        user_id=current_user.id,
+        item_description=item_description,
+        lost_location=lost_location,
+        lost_date=lost_date,
+        image_url=image_url,
+        detection_results=detection_results_json
+    )
+    db.session.add(new_lost_report)
+    db.session.commit()
+
+    matched_items = []
+    all_found_items = LostItem.query.all()
+
+    user_report_predictions = parse_predictions(new_lost_report.detection_results)
+    user_report_labels = {p['label'] for p in user_report_predictions if 'label' in p}
+
+    for found_item in all_found_items:
+        score = 0
+        match_details = []
+
+        if new_lost_report.lost_location.lower() in found_item.location.lower() or \
+           found_item.location.lower() in new_lost_report.lost_location.lower():
+            score += 10
+            match_details.append("장소 일치")
+
+        if query_matches(item_description, found_item.description):
+            score += 5
+            match_details.append("설명 키워드 매칭")
+
+        found_item_predictions = parse_predictions(found_item.detection_results)
+        found_item_labels = {p['label'] for p in found_item_predictions if 'label' in p}
+        common_labels = user_report_labels.intersection(found_item_labels)
+        if common_labels:
+            score += len(common_labels) * 10
+            match_details.append(f"AI 감지 특징 일치: {', '.join(common_labels)}")
+
+        if new_lost_report.lost_date and found_item.upload_date:
+            days_diff = abs((new_lost_report.lost_date - found_item.upload_date).days)
+            if days_diff <= 7:
+                score += (7 - days_diff) * 2
+                match_details.append(f"날짜 유사 (차이: {days_diff}일)")
+
+        if score >= 10:
+            matched_items.append({
+                "item": item_to_dict(found_item),
+                "match_score": score,
+                "match_details": match_details
             })
-        logger.info(f"get_my_lost_items: 사용자 {current_user.username}의 분실물 목록 조회 성공")
-        return jsonify({'lost_items': items_data}), 200
+
+    matched_items.sort(key=lambda x: x['match_score'], reverse=True)
+
+    return jsonify({
+        'message': '물건 등록 성공 및 매칭 결과',
+        'lost_report': lost_report_to_dict(new_lost_report),
+        'matched_items': matched_items
+    }), 201
+
+def query_matches(query_text, target_text):
+    if not query_text or not target_text:
+        return False
+    query_words = set(query_text.lower().split())
+    target_words = set(target_text.lower().split())
+    return bool(query_words.intersection(target_words))
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    logger.error(f"서버 내부 오류 발생: {e}", exc_info=True)
+    return jsonify({"error": f"서버 내부 오류: {str(e)}"}), 500
+
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; img-src 'self' data: http://localhost:5000; script-src 'self'; style-src 'self' 'unsafe-inline'"
+    return response
+
+@app.route('/api/upload-image', methods=['POST'])
+@token_required
+def upload_image(current_user):
+    logger.info("Received request for /api/upload-image")
+    if 'image' not in request.files:
+        logger.error("No image file in request")
+        return jsonify({'error': '이미지 파일이 필요합니다.'}), 400
+
+    image_file = request.files['image']
+    filename = secure_filename(image_file.filename)
+    filepath = os.path.join(UPLOAD_DIRECTORY_PATH, filename)
+
+    try:
+        image_file.save(filepath)
+        logger.info(f"Image saved to {filepath}")
+
+        predictions_data = []
+
+        if current_app.config['YOLO_MODEL']:
+            try:
+                img = Image.open(filepath).convert('RGB')
+                results = current_app.config['YOLO_MODEL'].predict(img, conf=0.25, iou=0.45, device='cpu')
+                if results.pred and len(results.pred) > 0 and len(results.pred[0]) > 0:
+                    for *xyxy, conf, cls in results.pred[0]:
+                        label = current_app.config['YOLO_MODEL'].names[int(cls)]
+                        try:
+                            score_val = float(conf)
+                            if not (0.0 <= score_val <= 1.0):
+                                logger.warning(f"Conf score {conf} resulted in out-of-range value in /upload-image. Set to 0.0.")
+                                score_val = 0.0
+                        except Exception:
+                            logger.warning(f"Invalid confidence value encountered: {conf} in /upload-image. Defaulting score to 0.0.")
+                            score_val = 0.0
+                        predictions_data.append({
+                            "label": label,
+                            "score": score_val,
+                            "box": [float(v) for v in xyxy]
+                        })
+                    logger.info(f"Image processed, detected: {len(predictions_data)} objects.")
+                else:
+                    logger.info("No objects detected in the image.")
+                    predictions_data.append({"info": "이미지에서 감지된 물건이 없습니다."})
+
+            except Exception as yolo_e:
+                logger.error(f"YOLO detection error during /upload-image: {yolo_e}", exc_info=True)
+                predictions_data = [{"error": f"YOLO 감지 처리 실패: {str(yolo_e)}"}]
+        else:
+            logger.warning("YOLO 모델이 백엔드에 로드되지 않아 객체 감지를 수행할 수 없습니다.")
+            predictions_data = [{"warning": "YOLO 모델이 백엔드에 로드되지 않았습니다."}]
+
+        return jsonify({
+            'message': '이미지 업로드 및 처리 성공!',
+            'image_url': f'/uploads/{filename}',
+            'predictions': predictions_data,
+            'location': request.form.get('location')
+        }), 200
+
     except Exception as e:
-        logger.error(f"get_my_lost_items: 분실물 목록 조회 중 오류 발생: {e}", exc_info=True)
-        return jsonify({'error': f'Error fetching my lost items: {e}'}), 500
+        logger.error(f"Error during image upload or general processing in /upload-image: {e}", exc_info=True)
+        return jsonify({'error': f'이미지 처리 중 서버 오류가 발생했습니다: {str(e)}'}), 500
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
-
     user = User.query.filter_by(username=username).first()
-
     if user and check_password_hash(user.password_hash, password):
-        access_token = create_access_token(
-            identity=user.id,
-            additional_claims={"is_admin": user.is_admin}
-        )
+        access_token = generate_token(user)
+
         return jsonify({
             "message": "로그인 성공",
             "token": access_token,
-            "user": user.to_dict()  # user 모델에 to_dict() 메서드가 있어야 함
+            "user": user.to_dict()
         }), 200
     else:
         return jsonify({"error": "아이디 또는 비밀번호가 올바르지 않습니다."}), 401
 
-@app.errorhandler(Exception)
-def handle_exception(e):
-    import traceback
-    print(traceback.format_exc())  # 터미널에 상세 오류 출력
-    return jsonify({"error": f"서버 내부 오류: {str(e)}"}), 500  # 괄호 위치 수정
-
-@app.after_request
-def add_security_headers(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    # 필요하다면 아래와 같은 추가 보안 헤더도 설정할 수 있습니다.
-    # response.headers['X-Frame-Options'] = 'DENY'
-    # response.headers['Content-Security-Policy'] = "default-src 'self'"
-    return response
-
 if __name__ == '__main__':
-    # app.run(debug=True)  # 이렇게 실행하거나
-    app.run(host='0.0.0.0', port=5000, debug=True)  # 호스트와 포트 지정, 디버그 모드 활성화
+    app.run(host='0.0.0.0', port=5000, debug=True)

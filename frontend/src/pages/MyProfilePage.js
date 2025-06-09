@@ -5,7 +5,7 @@ import { AuthContext } from '../App';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import LogoutButton from '../components/login/LogoutButton';
-import './style/Page.css'; // Consistent path
+import './style/Page.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 

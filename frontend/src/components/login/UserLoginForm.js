@@ -2,8 +2,6 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../App';
-import './style/auth-form.css'; // 공통 폼 스타일 임포트
-import './style/login-form.css'; // 로그인 폼에 특화된 스타일 (선택 사항)
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -42,33 +40,33 @@ const UserLoginForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="auth-form user-login-form"> {/* 추가 클래스 */}
+    <form onSubmit={handleSubmit} className="auth-form-container">
       <div className="form-group">
-        <label htmlFor="user-username">아이디:</label>
+        <label htmlFor="username">아이디:</label>
         <input
-          id="user-username"
           type="text"
+          id="username"
+          className="form-input"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
-          className="form-input"
         />
       </div>
       <div className="form-group">
-        <label htmlFor="user-password">비밀번호:</label>
+        <label htmlFor="password">비밀번호:</label>
         <input
-          id="user-password"
           type="password"
+          id="password"
+          className="form-input"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="form-input"
         />
       </div>
-      <button type="submit" className="submit-button">
+      {error && <p className="error-message">{error}</p>}
+      <button type="submit" className="auth-submit-button">
         로그인
       </button>
-      {error && <p className="error-message">{error}</p>}
     </form>
   );
 };

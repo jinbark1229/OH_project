@@ -1,41 +1,37 @@
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 0;
-  padding: 0;
-  background-color: #f4f7f6;
-  color: #333;
-  line-height: 1.6;
-}
+/* src/pages/style/Page.css */
 
+/* 모든 페이지의 주 컨테이너 스타일 (App.css의 .app-container 내부에 위치) */
 .page-container {
   max-width: 960px;
-  margin: 40px auto;
+  margin: 40px auto; /* 이 줄은 App.js의 app-container에 의해 관리됩니다. */
   padding: 30px;
-  background-color: #ffffff;
+  background-color: #fff;
   border-radius: 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   text-align: center;
-  min-height: 60vh;
+  min-height: 60vh; /* 최소 높이 설정 */
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center; /* flex-start → center로 변경 */
   align-items: center;
+  box-sizing: border-box; /* 패딩이 너비에 포함되도록 */
+  flex-grow: 1; /* App.js의 app-container 내에서 사용될 때 남은 공간을 차지하도록 */
 }
 
+/* 페이지 제목, 단락 */
 .page-container h1 {
   color: #007bff;
   margin-bottom: 25px;
   font-size: 2.5em;
   font-weight: 600;
-  text-align: center;
 }
-
 .page-container p {
   font-size: 1.1em;
   color: #555;
   margin-bottom: 20px;
 }
 
+/* 페이지 내 버튼 그룹 */
 .button-group {
   display: flex;
   flex-wrap: wrap;
@@ -44,286 +40,16 @@ body {
   margin-top: 30px;
 }
 
-.submit-button, .main-button, .dashboard-button, .back-button, .delete-button, .switcher-button, .logout-button {
-  border: none;
-  border-radius: 8px;
-  font-size: 1.1em;
-  cursor: pointer;
-  font-weight: 500;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.submit-button, .main-button, .dashboard-button, .back-button, .delete-button, .logout-button {
-  padding: 12px 25px;
-}
-.switcher-button {
-  padding: 10px 20px;
-  border: 1px solid #ccc;
-}
-
-.submit-button, .main-button {
-  background-color: #007bff;
-  color: #ffffff;
-  box-shadow: 0 3px 8px rgba(0, 123, 255, 0.3);
-}
-
-.back-button {
-  background-color: #6c757d;
-  color: #ffffff;
-  box-shadow: 0 3px 8px rgba(108, 117, 125, 0.3);
-}
-
-.dashboard-button {
-  background-color: #28a745;
-  color: #ffffff;
-  box-shadow: 0 3px 8px rgba(40, 167, 69, 0.3);
-  min-width: 200px;
-}
-
-.delete-button {
-  background-color: #dc3545;
-  color: #ffffff;
-  box-shadow: 0 3px 8px rgba(220, 53, 69, 0.3);
-  margin-top: 10px;
-}
-
-.logout-button {
-  background-color: #ffc107;
-  color: #333;
-  box-shadow: 0 3px 8px rgba(255, 193, 7, 0.3);
-}
-
-.switcher-button {
-  background-color: #eee;
-  color: #333;
-  font-size: 1rem;
-}
-
-.submit-button:hover, .main-button:hover,
-.back-button:hover, .dashboard-button:hover,
-.delete-button:hover, .logout-button:hover {
-  transform: translateY(-2px);
-}
-
-.submit-button:hover, .main-button:hover {
-  background-color: #0056b3;
-  box-shadow: 0 5px 12px rgba(0, 123, 255, 0.4);
-}
-.back-button:hover {
-  background-color: #5a6268;
-  box-shadow: 0 5px 12px rgba(108, 117, 125, 0.4);
-}
-.dashboard-button:hover {
-  background-color: #218838;
-  box-shadow: 0 5px 12px rgba(40, 167, 69, 0.4);
-}
-.delete-button:hover {
-  background-color: #c82333;
-  box-shadow: 0 5px 12px rgba(220, 53, 69, 0.4);
-}
-.logout-button:hover {
-  background-color: #e0a800;
-  box-shadow: 0 5px 12px rgba(255, 193, 7, 0.4);
-}
-.switcher-button:hover:not(.active) {
-  background-color: #ddd;
-}
-.switcher-button.active {
-  background-color: #007bff;
-  color: white;
-  border-color: #007bff;
-  font-weight: bold;
-}
-
-.error-message, .success-message {
-  padding: 10px 15px;
-  border-radius: 5px;
-  margin-bottom: 20px;
-  text-align: center;
-  font-weight: bold;
-}
-.error-message {
-  color: #dc3545;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-}
-.success-message {
-  color: #28a745;
-  background-color: #d4edda;
-  border: 1px solid #c3e6cb;
-}
-
-.form-group {
-  margin-bottom: 20px;
-  width: 100%;
-  max-width: 400px;
-  text-align: left;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: bold;
-  color: #555;
-}
-.form-input {
-  width: calc(100% - 22px);
-  padding: 10px;
-  border: 1px solid #ced4da;
-  border-radius: 8px;
-  font-size: 1em;
-  box-sizing: border-box;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.form-input:focus {
-  border-color: #80bdff;
-  outline: 0;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-}
-
-.view-switcher {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  width: 100%;
-}
-
-.dashboard-view, .user-main-view {
-  padding: 20px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background-color: #fff;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
-  margin-bottom: 20px;
-  width: 100%;
-  max-width: 900px;
-}
-
-.profile-info {
-  margin-bottom: 20px;
-  text-align: left;
-}
-.profile-info p {
-  margin: 5px 0;
-  font-size: 1.05em;
-}
-
-.uploaded-items-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
-  margin-top: 20px;
-  width: 100%;
-}
-
-.item-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-  background-color: #fff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  transition: transform 0.2s ease;
-}
-.item-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.item-thumbnail {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  border-bottom: 1px solid #eee;
-}
-
-.item-details {
-  padding: 15px;
-  width: 100%;
-}
-.item-description {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.item-location {
-  font-size: 0.9rem;
-  color: #666;
-  margin-bottom: 10px;
-}
-
-.uploaded-items-grid .item-card {
-  /* 기존 아이템 카드 스타일 */
-}
-
-.item-details .form-group {
-  margin-bottom: 10px;
-  text-align: left;
-}
-
-.item-details label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-.item-details input.form-input {
-  width: calc(100% - 20px);
-  padding: 8px 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-/* 특징 입력 필드에 대한 특정 스타일 */
-.item-details input.feature-input {
-  margin-bottom: 5px;
-}
-
-.edit-button, .save-button, .cancel-button {
-  padding: 8px 15px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  margin-top: 10px;
-  font-size: 0.9rem;
-  transition: background-color 0.2s ease;
-  margin-right: 8px;
-}
-
-.edit-button {
-  background-color: #007bff;
-  color: white;
-}
-
-.edit-button:hover {
-  background-color: #0056b3;
-}
-
-.save-button {
-  background-color: #28a745;
-  color: white;
-}
-
-.save-button:hover {
-  background-color: #218838;
-}
-
-.cancel-button {
-  background-color: #6c757d;
-  color: white;
-}
-
-.cancel-button:hover {
-  background-color: #5a6268;
+/* 미디어 쿼리 (모바일 반응형 - Page.css에만 있는 특정 페이지 레이아웃 관련) */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 20px;
+    margin: 20px;
+  }
+  .page-container h1 {
+    font-size: 2em;
+  }
+  .button-group {
+    flex-direction: column;
+  }
 }
