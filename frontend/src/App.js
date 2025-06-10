@@ -1,5 +1,5 @@
 // src/App.js (확인 및 수정)
-import React, { useState, useEffect, useMemo, createContext } from 'react';
+import React, { useState, useEffect, createContext, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import RegisterPage from './pages/RegisterPage';
@@ -10,67 +10,83 @@ import NotFoundPage from './pages/NotFoundPage';
 import LostItemUploadPage from './pages/LostItemUploadPage';
 import AdminImageUploadPage from './pages/AdminImageUploadPage';
 import MyProfilePage from './pages/MyProfilePage';
-import AdminLogin from './pages/AdminLogin'; // 관리자 로그인 페이지 import 추가
+import AdminLogin from './pages/AdminLogin';
 import './App.css';
 
-// AuthContext 생성 및 isLoadingAuth 추가
-export const AuthContext = createContext({
-  userToken: null,
-  userInfo: null,
-  isLoadingAuth: true,
-  login: () => {},
-  logout: () => {},
-});
+export const AuthContext = createContext(null);
 
 function App() {
-  const [userToken, setUserToken] = useState(null);
-  const [userInfo, setUserInfo] = useState(null);
+  const [userToken, setUserToken] = useState(localStorage.getItem('token'));
+  const [isAuthenticated, setIsAuthenticated] = useState(!!userToken);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
+  // 토큰 검증 및 사용자 정보 갱신
   useEffect(() => {
-    const loadAuthData = () => {
-      try {
-        const storedToken = localStorage.getItem('userToken');
-        const storedUserInfo = localStorage.getItem('userInfo');
-        if (storedToken && storedUserInfo) {
-          setUserToken(storedToken);
-          setUserInfo(JSON.parse(storedUserInfo));
+    const validateToken = async () => {
+      setIsLoadingAuth(true);
+      if (userToken) {
+        try {
+          const response = await fetch(
+            `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000'}/api/auth/validate-token`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${userToken}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setCurrentUser(data.user);
+            setIsAdmin(data.user.is_admin || false);
+            setIsAuthenticated(true);
+          } else {
+            logout();
+          }
+        } catch (error) {
+          console.error('토큰 검증 오류:', error);
+          logout();
         }
-      } catch (error) {
-        console.error("Failed to load auth data from localStorage:", error);
-        localStorage.removeItem('userToken');
-        localStorage.removeItem('userInfo');
-        setUserToken(null);
-        setUserInfo(null);
-      } finally {
-        setIsLoadingAuth(false);
+      } else {
+        setIsAuthenticated(false);
       }
+      setIsLoadingAuth(false);
     };
-    loadAuthData();
+    validateToken();
+    // eslint-disable-next-line
+  }, [userToken]);
+
+  const login = useCallback(async (token, user) => {
+    localStorage.setItem('token', token);
+    setUserToken(token);
+    setIsAuthenticated(true);
+    setCurrentUser(user);
+    setIsAdmin(user.is_admin || false);
   }, []);
 
-  const login = (token, user) => {
-    setUserToken(token);
-    setUserInfo(user);
-    localStorage.setItem('userToken', token);
-    localStorage.setItem('userInfo', JSON.stringify(user));
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
     setUserToken(null);
-    setUserInfo(null);
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userInfo');
-  };
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setIsAdmin(false);
+  }, []);
 
-  // useMemo로 value 객체를 안정적으로 제공
-  const authContextValue = useMemo(() => ({
-    userToken,
-    userInfo,
-    isLoadingAuth,
-    login,
-    logout,
-  }), [userToken, userInfo, isLoadingAuth]);
+  const authContextValue = useMemo(
+    () => ({
+      userToken,
+      isAuthenticated,
+      isAdmin,
+      currentUser,
+      login,
+      logout,
+      isLoadingAuth,
+    }),
+    [userToken, isAuthenticated, isAdmin, currentUser, login, logout, isLoadingAuth]
+  );
 
   return (
     <AuthContext.Provider value={authContextValue}>
@@ -85,7 +101,7 @@ function App() {
             <Route path="/user/upload" element={<LostItemUploadPage />} />
             <Route path="/admin/upload" element={<AdminImageUploadPage />} />
             <Route path="/user/profile" element={<MyProfilePage />} />
-            <Route path="/admin/login" element={<AdminLogin />} /> {/* 관리자 로그인 라우트 추가 */}
+            <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </div>

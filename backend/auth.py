@@ -53,6 +53,7 @@ def token_required(f):
 
 def admin_required(f):
     @wraps(f)
+    @token_required
     def decorated_function(current_user, *args, **kwargs):
         if not current_user or not current_user.is_admin:
             return jsonify({'message': '관리자 권한이 필요합니다.'}), 403
@@ -132,12 +133,7 @@ def login_common(username, password, admin_code=None, is_admin_route=False):
     token = generate_token(user)
     return jsonify({
         'token': token,
-        'user': {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'is_admin': user.is_admin
-        }
+        'user': user.to_dict()
     }), 200
 
 @auth_bp.route('/login', methods=['POST'])

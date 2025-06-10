@@ -12,7 +12,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
     is_admin = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.datetime.now)  # 생성 시각 저장
+    created_at = db.Column(db.DateTime, default=datetime.datetime.now)
     lost_items = db.relationship('LostItem', backref='user', lazy=True)
     lost_reports = db.relationship('LostReport', backref='user', lazy=True)
 
@@ -24,10 +24,10 @@ class User(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "username": self.username,
-            "email": self.email,
-            "is_admin": self.is_admin
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'is_admin': self.is_admin
         }
 
 class LostItem(db.Model):
